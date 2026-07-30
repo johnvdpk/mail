@@ -1,0 +1,16 @@
+.toggle {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 0.45rem 0.75rem;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.toggle:hover {
+  color: var(--text);
+  background: var(--surface2);
+  box-shadow: none;
+}

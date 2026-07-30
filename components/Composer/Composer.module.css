@@ -1,0 +1,100 @@
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.85rem 1.25rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+  animation: fade-up var(--dur) var(--ease);
+}
+
+.quickRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ccRow {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ccToggle {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.ccToggle:hover:not(:disabled) {
+  color: var(--text);
+  border-color: transparent;
+}
+
+.ccInput {
+  flex: 1;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.formatBar {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.formatBtn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  min-width: 2rem;
+  text-align: center;
+}
+
+.formatBtn:hover:not(:disabled) {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: transparent;
+}
+
+.quick {
+  background: transparent;
+  font-size: 0.82rem;
+}
+
+.notes {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.hint {
+  margin-right: auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.send {
+  background: var(--cta);
+  border-color: var(--cta);
+  color: var(--cta-text);
+  font-weight: 600;
+}
+
+.send:hover:not(:disabled) {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
+  color: var(--cta-text);
+}

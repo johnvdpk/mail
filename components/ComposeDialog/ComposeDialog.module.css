@@ -1,0 +1,104 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: var(--backdrop);
+  animation: fade-in var(--dur-mod) var(--ease);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: min(880px, 100%);
+  height: min(720px, 92vh);
+  max-height: 92vh;
+  overflow: hidden;
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  animation: pop-in var(--dur-mod) var(--ease);
+}
+
+.bodyField {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.bodyField textarea {
+  flex: 1;
+  min-height: 280px;
+  height: 100%;
+  resize: none;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.close {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.notes {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.error {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.12);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.send {
+  background: var(--cta);
+  border-color: var(--cta);
+  color: var(--cta-text);
+  font-weight: 600;
+}
+
+.send:hover:not(:disabled) {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
+  color: var(--cta-text);
+}

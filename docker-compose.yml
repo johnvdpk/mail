@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mail
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mail}
+      POSTGRES_DB: mail
+    volumes:
+      - mail_pgdata:/var/lib/postgresql/data
+    ports:
+      # Expose only for local debugging; on VPS you can remove this mapping
+      - "${POSTGRES_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail -d mail"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      - .env.local
+    environment:
+      # Inside Docker the DB host is the service name `db`
+      DATABASE_URL: postgresql://mail:${POSTGRES_PASSWORD:-mail}@db:5432/mail
+      NODE_ENV: production
+      AUTH_SECURE: ${AUTH_SECURE:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mail_pgdata:

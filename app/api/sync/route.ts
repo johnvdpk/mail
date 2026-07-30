@@ -1,0 +1,36 @@
+import { requireAuth } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { isImapConfigured } from "@/lib/imap";
+import { getFolderView, resolveFolderPath } from "@/lib/mailbox-service";
+import { syncFolder } from "@/lib/sync";
+
+export const dynamic = "force-dynamic";
+export const maxDuration = 120;
+
+export async function POST(request: Request) {
+  const denied = await requireAuth();
+  if (denied) return denied;
+
+  if (!isImapConfigured()) {
+    return NextResponse.json(
+      {
+        error:
+          "IMAP niet geconfigureerd. Zet IMAP_HOST/IMAP_USER/IMAP_PASS (of SMTP_USER/SMTP_PASS) in .env.local",
+      },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const requested = new URL(request.url).searchParams.get("folder");
+    const folder = await resolveFolderPath(requested);
+    const result = await syncFolder(folder);
+    const view = await getFolderView(folder);
+
+    return NextResponse.json({ ok: true, ...result, ...view });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Sync mislukt";
+    console.error("[sync]", message, err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

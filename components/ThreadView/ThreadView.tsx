@@ -1,0 +1,124 @@
+"use client";
+
+import { useState } from "react";
+import type { FolderSummary, ThreadDetail } from "@/lib/types";
+import { MessageCard } from "./MessageCard";
+import styles from "./ThreadView.module.css";
+
+type Props = {
+  detail: ThreadDetail | null;
+  account: string;
+  folders: FolderSummary[];
+  loading: boolean;
+  aiOpen: boolean;
+  googleConnected: boolean;
+  googleConfigured: boolean;
+  onToggleAi: () => void;
+  onMarkUnread: () => void;
+  onToggleStar: () => void;
+  onMove: (destination: string) => void;
+  onDelete: () => void;
+  onForward: () => void;
+};
+
+export function ThreadView({
+  detail,
+  account,
+  folders,
+  loading,
+  aiOpen,
+  googleConnected,
+  googleConfigured,
+  onToggleAi,
+  onMarkUnread,
+  onToggleStar,
+  onMove,
+  onDelete,
+  onForward,
+}: Props) {
+  const [moveOpen, setMoveOpen] = useState(false);
+
+  if (loading) {
+    return <p className={styles.placeholder}>Conversatie wordt geladen…</p>;
+  }
+  if (!detail) {
+    return <p className={styles.placeholder}>Kies een bericht uit de lijst.</p>;
+  }
+
+  return (
+    <div className={styles.wrap} key={detail.thread.id}>
+      <header className={styles.head}>
+        <div className={styles.headText}>
+          <h2 className={styles.subject}>{detail.thread.subject}</h2>
+          <p className={styles.participants}>
+            {detail.thread.participants
+              .filter((p) => p.email.toLowerCase() !== account.toLowerCase())
+              .map((p) => p.name || p.email)
+              .join(", ")}
+          </p>
+        </div>
+        <div className={styles.headActions}>
+          <button
+            type="button"
+            className={detail.thread.flagged ? styles.starred : ""}
+            onClick={onToggleStar}
+            title={detail.thread.flagged ? "Ster verwijderen" : "Ster toevoegen"}
+          >
+            {detail.thread.flagged ? "★" : "☆"}
+          </button>
+          <button type="button" onClick={onMarkUnread}>
+            Ongelezen
+          </button>
+          <div className={styles.moveWrap}>
+            <button type="button" onClick={() => setMoveOpen(!moveOpen)}>
+              Verplaatsen
+            </button>
+            {moveOpen && (
+              <ul className={styles.moveMenu}>
+                {folders
+                  .filter((f) => !detail.thread.folders.includes(f.path))
+                  .map((f) => (
+                    <li key={f.path}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoveOpen(false);
+                          onMove(f.path);
+                        }}
+                      >
+                        {f.role
+                          ? { inbox: "Inbox", sent: "Verzonden", drafts: "Concepten", trash: "Prullenbak", junk: "Spam", archive: "Archief" }[f.role] ?? f.name
+                          : f.name}
+                      </button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+          <button type="button" onClick={onForward}>
+            Doorsturen
+          </button>
+          <button type="button" onClick={onDelete} className={styles.deleteBtn}>
+            Verwijder
+          </button>
+          <button type="button" onClick={onToggleAi} aria-pressed={aiOpen}>
+            {aiOpen ? "AI verbergen" : "AI-hulp"}
+          </button>
+        </div>
+      </header>
+
+      <div className={styles.messages}>
+        {detail.messages.map((message, index) => (
+          <MessageCard
+            key={message.id}
+            message={message}
+            defaultOpen={index === detail.messages.length - 1}
+            isLast={index === detail.messages.length - 1}
+            googleConnected={googleConnected}
+            googleConfigured={googleConfigured}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
