@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EmailConfig } from "@/lib/email-config";
+import type { EmailConfig } from "@/lib/email-config-shared";
+import { buildMailForm } from "@/lib/mail-form-client";
 import type { TipsResult } from "@/lib/ai-mail";
+import { consumeAiStream } from "@/lib/ai-stream";
+import type { ExtractedTasksDoc, ExtractedTasksSummary } from "@/lib/extracted-tasks-types";
 import type { FolderSummary, Thread, ThreadDetail } from "@/lib/types";
 import type { ThreadFilter } from "@/components/ThreadList/ThreadList";
 import type { SortSuggestion } from "@/lib/sort-types";
 import type { SortConfirmItem } from "@/components/SortReview/SortReview";
+import type { ContactStatus, ContactView, SearchJobSummary, SearchJobView } from "@/lib/search-types";
+import type { EmbeddingBackfillStatus } from "@/lib/embeddings";
 
 const POLL_INTERVAL_MS = 60_000;
+const SEARCH_POLL_MS = 8_000;
 
 export function useMailAppState(
   initialFolders: FolderSummary[],
@@ -33,6 +39,8 @@ export function useMailAppState(
   const [replyText, setReplyText] = useState("");
   const [replyCc, setReplyCc] = useState("");
   const [replyBcc, setReplyBcc] = useState("");
+  const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
+  const [replyAttachmentError, setReplyAttachmentError] = useState<string | null>(null);
   const [draftingIntent, setDraftingIntent] = useState<string | null>(null);
   const [polishing, setPolishing] = useState(false);
   const [sending, setSending] = useState(false);
@@ -41,14 +49,44 @@ export function useMailAppState(
   const [aiOpen, setAiOpen] = useState(false);
   const [tips, setTips] = useState<TipsResult | null>(null);
   const [tipsLoading, setTipsLoading] = useState(false);
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const [tasksDoc, setTasksDoc] = useState<ExtractedTasksDoc | null>(null);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksEmptyNotice, setTasksEmptyNotice] = useState<string | null>(null);
+  const [showTasksLibrary, setShowTasksLibrary] = useState(false);
+  const [tasksLibraryItems, setTasksLibraryItems] = useState<ExtractedTasksSummary[]>([]);
+  const [tasksLibraryActive, setTasksLibraryActive] = useState<ExtractedTasksDoc | null>(null);
+  const [tasksLibraryLoading, setTasksLibraryLoading] = useState(false);
   const [draftingPoint, setDraftingPoint] = useState<string | null>(null);
   const [sortSuggestions, setSortSuggestions] = useState<SortSuggestion[] | null>(null);
   const [sortingPreview, setSortingPreview] = useState(false);
   const [sortingApply, setSortingApply] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchJobs, setSearchJobs] = useState<SearchJobSummary[]>([]);
+  const [activeSearchJob, setActiveSearchJob] = useState<SearchJobView | null>(null);
+  const [embeddingProgress, setEmbeddingProgress] = useState<EmbeddingBackfillStatus | null>(
+    null
+  );
+  const [contacts, setContacts] = useState<ContactView[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [contactStatusFilter, setContactStatusFilter] = useState<ContactStatus | "all">("all");
   const [googleConnected, setGoogleConnected] = useState(false);
   const [googleConfigured, setGoogleConfigured] = useState(false);
+  const [suggestedIntentId, setSuggestedIntentId] = useState<string | null>(null);
+  const [suggestedConfidence, setSuggestedConfidence] = useState<number | null>(null);
+  const [suggestedReason, setSuggestedReason] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLabel, setPreviewLabel] = useState("");
+  const [previewText, setPreviewText] = useState("");
+  const [previewStreaming, setPreviewStreaming] = useState(false);
+  const [undoSeconds, setUndoSeconds] = useState<number | null>(null);
 
   const syncingRef = useRef(false);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const undoCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pendingSendRef = useRef<null | (() => Promise<void>)>(null);
+  const pendingDraftRef = useRef<string | null>(null);
 
   const inboxPath = useMemo(() => folders.find((f) => f.role === "inbox")?.path ?? "INBOX", [folders]);
 
@@ -132,9 +170,42 @@ export function useMailAppState(
     if (!imapReady) return;
     const timer = setInterval(() => {
       void sync(folder);
+      void processJobs();
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [folder, imapReady, sync]);
+
+  function applyEmbeddingProgress(data: {
+    embeddingBackfill?: EmbeddingBackfillStatus & { created?: number };
+  }) {
+    if (!data.embeddingBackfill) return;
+    const { total, embedded, pending } = data.embeddingBackfill;
+    setEmbeddingProgress({ total, embedded, pending });
+  }
+
+  async function processJobs() {
+    try {
+      const res = await fetch("/api/mail-jobs");
+      const data = await res.json();
+      if (!res.ok) return;
+      applyEmbeddingProgress(data);
+      if (Array.isArray(data.woken) && data.woken.length > 0) {
+        setNotice(`${data.woken.length} gesnoozede mail(s) terug in Inbox`);
+        void loadThreads(folder);
+      }
+      if (Array.isArray(data.followUps) && data.followUps.length > 0) {
+        setNotice(
+          `Follow-up: ${data.followUps.length} conversatie(s) wachten nog op antwoord`
+        );
+      }
+      if (data.scheduledSent > 0) {
+        setNotice(`${data.scheduledSent} geplande mail(s) verstuurd`);
+        void sync(folder);
+      }
+    } catch {
+      // Non-blocking
+    }
+  }
 
   const visibleThreads = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -173,9 +244,17 @@ export function useMailAppState(
     setReplyText("");
     setReplyCc("");
     setReplyBcc("");
+    setReplyAttachments([]);
+    setReplyAttachmentError(null);
     setPolishNotes(null);
     setTips(null);
+    setTasksDoc(null);
+    setTasksEmptyNotice(null);
     setError(null);
+    setSuggestedIntentId(null);
+    setSuggestedConfidence(null);
+    setSuggestedReason(null);
+    setPreviewOpen(false);
 
     try {
       const res = await fetch(`/api/thread?id=${encodeURIComponent(threadId)}`);
@@ -183,6 +262,7 @@ export function useMailAppState(
       if (!res.ok) throw new Error(data.error ?? "Conversatie ophalen mislukt");
       setDetail(data);
       if (data.thread?.unread) void setSeen(threadId, true);
+      if (aiReady) void loadIntentSuggestion(threadId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Conversatie ophalen mislukt");
       setDetail(null);
@@ -191,12 +271,25 @@ export function useMailAppState(
     }
   }
 
-  async function setSeen(threadId: string, seen: boolean) {
+  async function loadIntentSuggestion(threadId: string) {
+    try {
+      const res = await fetch(`/api/ai/intent?threadId=${encodeURIComponent(threadId)}`);
+      const data = await res.json();
+      if (!res.ok) return;
+      setSuggestedIntentId(typeof data.intentId === "string" ? data.intentId : null);
+      setSuggestedConfidence(typeof data.confidence === "number" ? data.confidence : null);
+      setSuggestedReason(typeof data.reason === "string" ? data.reason : null);
+    } catch {
+      // Non-blocking
+    }
+  }
+
+  async function setSeen(threadId: string, seen: boolean, folderOverride?: string) {
     try {
       const res = await fetch("/api/thread", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: threadId, folder, seen }),
+        body: JSON.stringify({ id: threadId, folder: folderOverride ?? folder, seen }),
       });
       const data = await res.json();
       if (res.ok) applyView(data);
@@ -207,49 +300,148 @@ export function useMailAppState(
 
   async function selectFolder(path: string) {
     setShowSettings(false);
+    setShowTasksLibrary(false);
     setFolder(path);
     setActiveThreadId(null);
     setDetail(null);
     setAiOpen(false);
+    setTasksOpen(false);
     await loadThreads(path);
     void sync(path);
   }
 
-  async function quickReply(intent: string) {
+  async function quickReply(intent: string, label?: string) {
     if (!activeThreadId) return;
     setDraftingIntent(intent);
     setError(null);
+    setPreviewLabel(label ?? intent);
+    setPreviewText("");
+    setPreviewOpen(true);
+    setPreviewStreaming(true);
+    setPolishNotes(null);
     try {
       const res = await fetch("/api/ai/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threadId: activeThreadId, intent }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "AI-draft mislukt");
-      setReplyText(data.body ?? "");
-      setPolishNotes(null);
+      const result = await consumeAiStream(res, (body) => setPreviewText(body));
+      setPreviewText(result.body);
     } catch (err) {
+      setPreviewOpen(false);
       setError(err instanceof Error ? err.message : "AI-draft mislukt");
     } finally {
       setDraftingIntent(null);
+      setPreviewStreaming(false);
     }
+  }
+
+  function keepEditingPreview() {
+    setReplyText(previewText);
+    setPreviewOpen(false);
+  }
+
+  function clearUndoTimers() {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (undoCountdownRef.current) clearInterval(undoCountdownRef.current);
+    undoTimerRef.current = null;
+    undoCountdownRef.current = null;
+    pendingSendRef.current = null;
+    setUndoSeconds(null);
+  }
+
+  function queueSendWithUndo(text: string, performSend: () => Promise<void>) {
+    clearUndoTimers();
+    pendingSendRef.current = performSend;
+    setUndoSeconds(8);
+    setNotice("Mail wordt over 8 seconden verstuurd…");
+
+    undoCountdownRef.current = setInterval(() => {
+      setUndoSeconds((prev) => {
+        if (prev === null || prev <= 1) return 0;
+        return prev - 1;
+      });
+    }, 1000);
+
+    undoTimerRef.current = setTimeout(() => {
+      const run = pendingSendRef.current;
+      clearUndoTimers();
+      if (run) void run();
+    }, 8000);
+
+    // Keep draft for undo restore
+    pendingDraftRef.current = text;
+  }
+
+  function undoSend() {
+    const draft = pendingDraftRef.current;
+    clearUndoTimers();
+    if (draft) setReplyText(draft);
+    pendingDraftRef.current = null;
+    setNotice("Verzenden geannuleerd");
+  }
+
+  async function performReplySend(text: string) {
+    if (!activeThreadId || !text.trim()) return;
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        "/api/mail/reply",
+        {
+          method: "POST",
+          body: buildMailForm(
+            {
+              threadId: activeThreadId,
+              folder,
+              text,
+              cc: replyCc || undefined,
+              bcc: replyBcc || undefined,
+            },
+            replyAttachments
+          ),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Versturen mislukt");
+      applyView(data);
+      setReplyText("");
+      setReplyCc("");
+      setReplyBcc("");
+      setReplyAttachments([]);
+      setReplyAttachmentError(null);
+      setPolishNotes(null);
+      setNotice(`Antwoord verstuurd naar ${data.to}`);
+      await openThread(activeThreadId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Versturen mislukt");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function confirmPreviewSend() {
+    if (!activeThreadId || !previewText.trim()) return;
+    const text = previewText;
+    setPreviewOpen(false);
+    setPreviewText("");
+    queueSendWithUndo(text, () => performReplySend(text));
   }
 
   async function polishReply() {
     if (!replyText.trim()) return;
     setPolishing(true);
     setError(null);
+    setPolishNotes(null);
     try {
       const res = await fetch("/api/ai/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threadId: activeThreadId, text: replyText }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Correctie mislukt");
-      setReplyText(data.body ?? replyText);
-      setPolishNotes(data.notes || null);
+      const result = await consumeAiStream(res, (body) => setReplyText(body));
+      setReplyText(result.body);
+      setPolishNotes(result.notes || null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Correctie mislukt");
     } finally {
@@ -259,33 +451,72 @@ export function useMailAppState(
 
   async function sendReply() {
     if (!activeThreadId || !replyText.trim()) return;
-    setSending(true);
+    const text = replyText;
+    setReplyText("");
+    queueSendWithUndo(text, () => performReplySend(text));
+  }
+
+  async function snoozeThread(option: "1h" | "tomorrow" | "friday" | "nextweek") {
+    if (!activeThreadId) return;
     setError(null);
     try {
-      const res = await fetch("/api/mail/reply", {
+      const res = await fetch("/api/mail-jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "snooze", threadId: activeThreadId, folder, option }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Snooze mislukt");
+      applyView(data);
+      setActiveThreadId(null);
+      setDetail(null);
+      setNotice(`Gesnoozed tot ${new Date(data.wakeAt).toLocaleString("nl-NL")}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Snooze mislukt");
+    }
+  }
+
+  async function setFollowUp(days: number) {
+    if (!activeThreadId) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/mail-jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "followup", threadId: activeThreadId, days }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Follow-up mislukt");
+      setNotice(`Follow-up gezet op ${new Date(data.remindAt).toLocaleDateString("nl-NL")}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Follow-up mislukt");
+    }
+  }
+
+  async function scheduleReply(sendAtIso: string) {
+    if (!activeThreadId || !replyText.trim()) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/mail-jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "schedule",
+          kind: "reply",
           threadId: activeThreadId,
-          folder,
           text: replyText,
           cc: replyCc || undefined,
           bcc: replyBcc || undefined,
+          sendAt: sendAtIso,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Versturen mislukt");
-      applyView(data);
+      if (!res.ok) throw new Error(data.error ?? "Plannen mislukt");
       setReplyText("");
-      setReplyCc("");
-      setReplyBcc("");
       setPolishNotes(null);
-      setNotice(`Antwoord verstuurd naar ${data.to}`);
-      await openThread(activeThreadId);
+      setNotice(`Gepland voor ${new Date(data.sendAt).toLocaleString("nl-NL")}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Versturen mislukt");
-    } finally {
-      setSending(false);
+      setError(err instanceof Error ? err.message : "Plannen mislukt");
     }
   }
 
@@ -306,6 +537,101 @@ export function useMailAppState(
       setError(err instanceof Error ? err.message : "Tips mislukt");
     } finally {
       setTipsLoading(false);
+    }
+  }
+
+  async function extractThreadTasks() {
+    if (!activeThreadId) return;
+    setTasksLoading(true);
+    setError(null);
+    setTasksEmptyNotice(null);
+    try {
+      const res = await fetch("/api/ai/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId: activeThreadId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Taken extraheren mislukt");
+
+      if (data.doc) {
+        setTasksDoc(data.doc as ExtractedTasksDoc);
+        setNotice("Takenlijst opgeslagen als .md");
+      } else {
+        setTasksDoc(null);
+        setTasksEmptyNotice(
+          typeof data.notice === "string" ? data.notice : "Geen taken gevonden."
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Taken extraheren mislukt");
+    } finally {
+      setTasksLoading(false);
+    }
+  }
+
+  function openTasksPanel() {
+    setShowSettings(false);
+    setShowTasksLibrary(false);
+    setAiOpen(false);
+    setTasksOpen(true);
+    if (!tasksDoc && !tasksLoading) void extractThreadTasks();
+  }
+
+  async function loadTasksLibrary(selectId?: string) {
+    setTasksLibraryLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/ai/tasks");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Takenlijsten ophalen mislukt");
+      const items = (data.items ?? []) as ExtractedTasksSummary[];
+      setTasksLibraryItems(items);
+
+      const targetId = selectId ?? tasksLibraryActive?.id ?? items[0]?.id;
+      if (targetId) {
+        await selectTasksLibraryItem(targetId);
+      } else {
+        setTasksLibraryActive(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Takenlijsten ophalen mislukt");
+    } finally {
+      setTasksLibraryLoading(false);
+    }
+  }
+
+  async function openTasksLibrary(selectId?: string) {
+    setShowSettings(false);
+    setTasksOpen(false);
+    setAiOpen(false);
+    setShowTasksLibrary(true);
+    await loadTasksLibrary(selectId);
+  }
+
+  async function selectTasksLibraryItem(id: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/ai/tasks?id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Takenlijst ophalen mislukt");
+      setTasksLibraryActive(data.doc as ExtractedTasksDoc);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Takenlijst ophalen mislukt");
+    }
+  }
+
+  async function deleteTasksLibraryItem(id: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/ai/tasks?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Verwijderen mislukt");
+      if (tasksLibraryActive?.id === id) setTasksLibraryActive(null);
+      if (tasksDoc?.id === id) setTasksDoc(null);
+      await loadTasksLibrary();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verwijderen mislukt");
     }
   }
 
@@ -349,23 +675,34 @@ export function useMailAppState(
     }
   }
 
-  async function forwardMail(to: string, text: string, cc?: string, bcc?: string) {
+  async function forwardMail(
+    to: string,
+    text: string,
+    attachments: File[],
+    cc?: string,
+    bcc?: string
+  ) {
     if (!activeThreadId) return;
     setSending(true);
     setError(null);
     try {
-      const res = await fetch("/api/mail/forward", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          threadId: activeThreadId,
-          folder,
-          to,
-          text,
-          cc: cc || undefined,
-          bcc: bcc || undefined,
-        }),
-      });
+      const res = await fetch(
+        "/api/mail/forward",
+        {
+          method: "POST",
+          body: buildMailForm(
+            {
+              threadId: activeThreadId,
+              folder,
+              to,
+              text,
+              cc,
+              bcc,
+            },
+            attachments
+          ),
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Doorsturen mislukt");
       applyView(data);
@@ -382,16 +719,15 @@ export function useMailAppState(
     if (!activeThreadId) return;
     setDraftingPoint(point);
     setError(null);
+    setPolishNotes(null);
     try {
       const res = await fetch("/api/ai/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ threadId: activeThreadId, intent: point }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Concept mislukt");
-      setReplyText(data.body ?? "");
-      setPolishNotes(null);
+      const result = await consumeAiStream(res, (body) => setReplyText(body));
+      setReplyText(result.body);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Concept mislukt");
     } finally {
@@ -447,6 +783,191 @@ export function useMailAppState(
     }
   }
 
+  async function loadSearchJobs() {
+    try {
+      const res = await fetch("/api/ai/search");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Zoekopdrachten ophalen mislukt");
+      setSearchJobs(Array.isArray(data.jobs) ? data.jobs : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Zoekopdrachten ophalen mislukt");
+    }
+  }
+
+  async function openSearch() {
+    setSearchOpen(true);
+    setError(null);
+    await loadSearchJobs();
+    void processJobs();
+  }
+
+  async function selectSearchJob(id: number) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/ai/search?id=${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Zoekopdracht ophalen mislukt");
+      setActiveSearchJob(data.job ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Zoekopdracht ophalen mislukt");
+    }
+  }
+
+  async function submitSearch(prompt: string) {
+    if (!aiReady || searchBusy) return;
+    setSearchBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/ai/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Zoeken mislukt");
+      setActiveSearchJob(data.job ?? null);
+      await loadSearchJobs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Zoeken mislukt");
+    } finally {
+      setSearchBusy(false);
+    }
+  }
+
+  async function deleteSearchJob(id: number) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/ai/search?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Verwijderen mislukt");
+      if (activeSearchJob?.id === id) setActiveSearchJob(null);
+      await loadSearchJobs();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Verwijderen mislukt");
+    }
+  }
+
+  async function openSearchResult(messageId: string) {
+    setSearchOpen(false);
+    setShowSettings(false);
+    setDetailLoading(true);
+    setReplyText("");
+    setReplyCc("");
+    setReplyBcc("");
+    setReplyAttachments([]);
+    setReplyAttachmentError(null);
+    setPolishNotes(null);
+    setTips(null);
+    setTasksDoc(null);
+    setTasksEmptyNotice(null);
+    setError(null);
+    setSuggestedIntentId(null);
+    setSuggestedConfidence(null);
+    setSuggestedReason(null);
+    setPreviewOpen(false);
+
+    try {
+      const res = await fetch(
+        `/api/thread?messageId=${encodeURIComponent(messageId)}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Conversatie ophalen mislukt");
+
+      const targetFolder =
+        (typeof data.folder === "string" && data.folder) ||
+        data.thread?.folders?.[0] ||
+        null;
+
+      if (targetFolder && targetFolder !== folder) {
+        setFolder(targetFolder);
+        await loadThreads(targetFolder);
+      }
+
+      const threadId = data.thread?.id as string | undefined;
+      if (!threadId) throw new Error("Conversatie ophalen mislukt");
+
+      setActiveThreadId(threadId);
+      setDetail(data);
+      if (data.thread?.unread) {
+        void setSeen(threadId, true, targetFolder ?? undefined);
+      }
+      if (aiReady) void loadIntentSuggestion(threadId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Conversatie ophalen mislukt");
+      setDetail(null);
+      setActiveThreadId(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  async function loadContacts(status?: ContactStatus | "all") {
+    const effective = status ?? contactStatusFilter;
+    setContactsLoading(true);
+    setError(null);
+    try {
+      const qs = effective !== "all" ? `?status=${effective}` : "";
+      const res = await fetch(`/api/ai/contacts${qs}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Contacten ophalen mislukt");
+      setContacts(Array.isArray(data.contacts) ? data.contacts : []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Contacten ophalen mislukt");
+    } finally {
+      setContactsLoading(false);
+    }
+  }
+
+  async function changeContactStatusFilter(status: ContactStatus | "all") {
+    setContactStatusFilter(status);
+    await loadContacts(status);
+  }
+
+  async function updateContactStatus(id: number, status: ContactStatus) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/ai/contacts?id=${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Bijwerken mislukt");
+      setContacts((prev) => prev.map((c) => (c.id === id ? data.contact : c)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bijwerken mislukt");
+    }
+  }
+
+  // Poll active search job while semantic enrichment may still run.
+  useEffect(() => {
+    if (!searchOpen || !activeSearchJob) return;
+    const status = activeSearchJob.status;
+    if (status !== "keyword_done" && status !== "semantic_running") return;
+
+    const timer = setInterval(() => {
+      void (async () => {
+        try {
+          // Kick background semantic jobs, then refresh the active job.
+          const jobsRes = await fetch("/api/mail-jobs");
+          const jobsData = await jobsRes.json();
+          if (jobsRes.ok) applyEmbeddingProgress(jobsData);
+          const res = await fetch(`/api/ai/search?id=${activeSearchJob.id}`);
+          const data = await res.json();
+          if (!res.ok || !data.job) return;
+          setActiveSearchJob(data.job);
+          if (data.job.status === "done" || data.job.status === "failed") {
+            await loadSearchJobs();
+          }
+        } catch {
+          // Non-blocking
+        }
+      })();
+    }, SEARCH_POLL_MS);
+
+    return () => clearInterval(timer);
+  }, [searchOpen, activeSearchJob?.id, activeSearchJob?.status]);
+
   return {
     folders,
     folder,
@@ -468,13 +989,30 @@ export function useMailAppState(
     setError,
     notice,
     setNotice,
+    undoSeconds,
+    undoSend,
     replyText,
     setReplyText,
     replyCc,
     setReplyCc,
     replyBcc,
     setReplyBcc,
+    replyAttachments,
+    setReplyAttachments,
+    replyAttachmentError,
+    setReplyAttachmentError,
     draftingIntent,
+    suggestedIntentId,
+    suggestedConfidence,
+    suggestedReason,
+    previewOpen,
+    setPreviewOpen,
+    previewLabel,
+    previewText,
+    setPreviewText,
+    previewStreaming,
+    keepEditingPreview,
+    confirmPreviewSend,
     polishing,
     sending,
     polishNotes,
@@ -484,11 +1022,30 @@ export function useMailAppState(
     setAiOpen,
     tips,
     tipsLoading,
+    tasksOpen,
+    setTasksOpen,
+    tasksDoc,
+    tasksLoading,
+    tasksEmptyNotice,
+    showTasksLibrary,
+    setShowTasksLibrary,
+    tasksLibraryItems,
+    tasksLibraryActive,
+    tasksLibraryLoading,
     draftingPoint,
     sortSuggestions,
     setSortSuggestions,
     sortingPreview,
     sortingApply,
+    searchOpen,
+    setSearchOpen,
+    searchBusy,
+    searchJobs,
+    activeSearchJob,
+    embeddingProgress,
+    contacts,
+    contactsLoading,
+    contactStatusFilter,
     googleConnected,
     googleConfigured,
     inboxPath,
@@ -500,13 +1057,29 @@ export function useMailAppState(
     quickReply,
     polishReply,
     sendReply,
+    snoozeThread,
+    setFollowUp,
+    scheduleReply,
     loadTips,
+    extractThreadTasks,
+    openTasksPanel,
+    openTasksLibrary,
+    selectTasksLibraryItem,
+    deleteTasksLibraryItem,
     folderAction,
     threadAction,
     forwardMail,
     draftFromPoint,
     previewSort,
     applySort,
+    openSearch,
+    selectSearchJob,
+    submitSearch,
+    deleteSearchJob,
+    openSearchResult,
+    loadContacts,
+    changeContactStatusFilter,
+    updateContactStatus,
     setGoogleConnected,
     setGoogleConfigured,
   };

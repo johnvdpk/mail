@@ -16,11 +16,14 @@ type Props = {
   /** Show AI sort button (inbox + AI ready). Always analyses inbox. */
   sortAvailable?: boolean;
   sorting?: boolean;
+  /** Show Leadradar (lead search) button when OpenRouter is ready. */
+  searchAvailable?: boolean;
   onSelect: (threadId: string) => void;
   onFilterChange: (filter: ThreadFilter) => void;
   onSearchChange: (value: string) => void;
   onSync: () => void;
   onSortInbox?: () => void;
+  onOpenMailSearch?: () => void;
 };
 
 const FILTERS: Array<{ id: ThreadFilter; label: string }> = [
@@ -39,11 +42,13 @@ export function ThreadList({
   syncedAt,
   sortAvailable,
   sorting,
+  searchAvailable,
   onSelect,
   onFilterChange,
   onSearchChange,
   onSync,
   onSortInbox,
+  onOpenMailSearch,
 }: Props) {
   return (
     <section className={styles.pane} aria-label="Berichten">
@@ -60,16 +65,30 @@ export function ThreadList({
           </button>
         </div>
 
-        {sortAvailable && onSortInbox && (
-          <button
-            type="button"
-            className={styles.sortBtn}
-            onClick={onSortInbox}
-            disabled={sorting || syncing}
-          >
-            {sorting ? "Bezig met sorteren…" : "Sorteer inbox"}
-          </button>
-        )}
+        {(sortAvailable && onSortInbox) || (searchAvailable && onOpenMailSearch) ? (
+          <div className={styles.actionRow}>
+            {sortAvailable && onSortInbox && (
+              <button
+                type="button"
+                className={styles.sortBtn}
+                onClick={onSortInbox}
+                disabled={sorting || syncing}
+              >
+                {sorting ? "Bezig met sorteren…" : "Sorteer inbox"}
+              </button>
+            )}
+            {searchAvailable && onOpenMailSearch && (
+              <button
+                type="button"
+                className={styles.sortBtn}
+                onClick={onOpenMailSearch}
+                disabled={syncing}
+              >
+                Leadradar
+              </button>
+            )}
+          </div>
+        ) : null}
 
         <div className={styles.filters} role="tablist" aria-label="Filter">
           {FILTERS.map((item) => (

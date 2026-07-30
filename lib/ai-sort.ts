@@ -1,6 +1,7 @@
 import { chatCompletion, isOpenRouterConfigured } from "./openrouter";
 import { getFolders, getInboxPath } from "./folders";
 import { ownAddresses } from "./imap";
+import { parseJsonObject } from "./llm-json";
 import { normalizeEmail } from "./normalize";
 import { readFolderCache } from "./store";
 import { buildThreads } from "./threads";
@@ -19,26 +20,6 @@ Regels:
 - Geen system-mappen: Inbox, Sent, Verzonden, Drafts, Concepten, Trash, Prullenbak, Junk, Spam, Archive, Archief.
 - Per suggestion: messageId (exact zoals gegeven), proposedFolder, createFolder (bool), confidence (0-1), reason (kort Nederlands).
 - Groepeer niet meerdere messageIds in één suggestion; één messageId per suggestion (threads worden server-side samengevoegd).`;
-
-function stripMarkdown(raw: string): string {
-  return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-}
-
-function parseJsonObject(raw: string): Record<string, unknown> | null {
-  const cleaned = stripMarkdown(raw);
-  try {
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start === -1 || end <= start) return null;
-    try {
-      return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-}
 
 const BLOCKED_NAMES = new Set([
   "inbox",

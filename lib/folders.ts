@@ -30,7 +30,8 @@ function resolveRole(path: string, name: string, specialUse?: string): FolderRol
   return undefined;
 }
 
-const ROLE_ORDER: FolderRole[] = ["inbox", "drafts", "sent", "archive", "junk", "trash"];
+/** Inbox first and most prominent; Archive + Drafts directly underneath. */
+const ROLE_ORDER: FolderRole[] = ["inbox", "archive", "drafts", "sent", "junk", "trash"];
 
 function sortFolders(folders: MailFolder[]): MailFolder[] {
   return [...folders].sort((a, b) => {

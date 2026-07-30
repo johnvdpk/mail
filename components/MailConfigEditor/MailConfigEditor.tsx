@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { EmailConfig, QuickReplyTemplate } from "@/lib/email-config";
+import type {
+  ContactReplySet,
+  EmailConfig,
+  QuickReplyTemplate,
+  WritingProfile,
+} from "@/lib/email-config-shared";
 import styles from "./MailConfigEditor.module.css";
 
 type Props = {
@@ -31,6 +36,9 @@ export function MailConfigEditor({
   const [gConfigured, setGConfigured] = useState(googleConfigured);
   const [gEmail, setGEmail] = useState(googleEmail);
   const [gBusy, setGBusy] = useState(false);
+  const [profile, setProfile] = useState<WritingProfile | null>(null);
+  const [toneBusy, setToneBusy] = useState(false);
+  const [tweakText, setTweakText] = useState("");
 
   useEffect(() => {
     setGConnected(googleConnected);
@@ -40,6 +48,7 @@ export function MailConfigEditor({
 
   useEffect(() => {
     void refreshGoogle();
+    void loadToneProfile();
   }, []);
 
   async function refreshGoogle() {
@@ -57,6 +66,98 @@ export function MailConfigEditor({
       onGoogleStatusChange?.(next);
     } catch {
       // ignore
+    }
+  }
+
+  async function loadToneProfile() {
+    try {
+      const res = await fetch("/api/tone?refresh=1");
+      const data = await res.json();
+      if (!res.ok) return;
+      const next = (data.profile ?? null) as WritingProfile | null;
+      setProfile(next);
+      if (next?.pendingSuggestion) setTweakText(next.pendingSuggestion);
+      if (data.refreshed && data.significantChange) {
+        setMessage("Schrijfstijl opnieuw geanalyseerd — er zijn nieuwe suggesties.");
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function runToneAnalyze() {
+    setToneBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/tone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "analyze", limit: 80 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Analyse mislukt");
+      setProfile(data.profile);
+      if (data.profile?.pendingSuggestion) setTweakText(data.profile.pendingSuggestion);
+      setMessage(`Analyse klaar (${data.profile.sampleCount} mails).`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Analyse mislukt");
+    } finally {
+      setToneBusy(false);
+    }
+  }
+
+  async function toneAction(action: "accept" | "reject" | "tweak") {
+    setToneBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      if (action === "tweak") {
+        const res = await fetch("/api/tone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "tweak", rules: tweakText }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Opslaan mislukt");
+        setProfile(data.profile);
+        setMessage("Suggestie bijgewerkt — accepteer om toe te voegen aan je regels.");
+        return;
+      }
+
+      if (action === "accept" && tweakText.trim()) {
+        await fetch("/api/tone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "tweak", rules: tweakText.trim() }),
+        });
+      }
+
+      const res = await fetch("/api/tone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Actie mislukt");
+
+      if (action === "accept" && data.acceptedRules) {
+        setConfig((c) => ({
+          ...c,
+          toneOfVoice: {
+            ...c.toneOfVoice,
+            rules: `${c.toneOfVoice.rules.trim()}\n\n=== Geleerd uit verzonden mail ===\n${data.acceptedRules}`.trim(),
+          },
+        }));
+        setMessage("Suggestie toegevoegd aan tone-regels. Vergeet niet op te slaan.");
+      } else {
+        setMessage("Suggestie afgewezen.");
+      }
+      setProfile(data.profile);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Actie mislukt");
+    } finally {
+      setToneBusy(false);
     }
   }
 
@@ -105,6 +206,61 @@ export function MailConfigEditor({
     }));
   }
 
+  function addContactReplySet() {
+    setConfig((c) => ({
+      ...c,
+      contactReplies: [
+        ...c.contactReplies,
+        {
+          contactEmail: "",
+          contactName: "",
+          replies: [
+            {
+              id: `custom-${Date.now()}`,
+              label: "Snelle reactie",
+              hint: "",
+              text: "Hey,\n\nGroeten,\nJohn",
+              personalNote: "",
+            },
+          ],
+        },
+      ],
+    }));
+  }
+
+  function updateContactSet(index: number, patch: Partial<ContactReplySet>) {
+    setConfig((c) => ({
+      ...c,
+      contactReplies: c.contactReplies.map((item, i) =>
+        i === index ? { ...item, ...patch } : item
+      ),
+    }));
+  }
+
+  function updateContactReply(
+    setIndex: number,
+    replyIndex: number,
+    patch: Partial<QuickReplyTemplate>
+  ) {
+    setConfig((c) => ({
+      ...c,
+      contactReplies: c.contactReplies.map((item, i) => {
+        if (i !== setIndex) return item;
+        return {
+          ...item,
+          replies: item.replies.map((r, ri) => (ri === replyIndex ? { ...r, ...patch } : r)),
+        };
+      }),
+    }));
+  }
+
+  function removeContactSet(index: number) {
+    setConfig((c) => ({
+      ...c,
+      contactReplies: c.contactReplies.filter((_, i) => i !== index),
+    }));
+  }
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -125,6 +281,9 @@ export function MailConfigEditor({
       setSaving(false);
     }
   }
+
+  const showSuggestion =
+    profile?.suggestionStatus === "pending" && Boolean(profile.pendingSuggestion);
 
   return (
     <div className={styles.wrap}>
@@ -205,6 +364,71 @@ export function MailConfigEditor({
       </section>
 
       <section className={styles.section}>
+        <div className={styles.sectionHead}>
+          <h3>Geleerde schrijfstijl</h3>
+          <button
+            type="button"
+            onClick={() => void runToneAnalyze()}
+            disabled={toneBusy}
+          >
+            {toneBusy ? "Analyseert…" : "Analyseer verzonden mails"}
+          </button>
+        </div>
+        <p className={styles.subtitle}>
+          Suggesties op basis van je verzonden mails. Handmatige regels blijven leidend;
+          accepteer een suggestie om die eraan toe te voegen.
+        </p>
+        {profile ? (
+          <p className={styles.metaLine}>
+            {profile.sampleCount} mails · avg {profile.avgLength} woorden · confidence{" "}
+            {Math.round(profile.confidence * 100)}% · laatst{" "}
+            {new Date(profile.analyzedAt).toLocaleDateString("nl-NL")}
+          </p>
+        ) : (
+          <p className={styles.subtitle}>Nog geen analyse uitgevoerd.</p>
+        )}
+        {profile?.sentencePatterns && (
+          <p className={styles.metaLine}>{profile.sentencePatterns}</p>
+        )}
+        {showSuggestion && (
+          <div className={styles.suggestionBox}>
+            <label className={styles.field}>
+              <span>Voorgestelde regels (bewerkbaar)</span>
+              <textarea
+                rows={6}
+                value={tweakText}
+                onChange={(e) => setTweakText(e.target.value)}
+              />
+            </label>
+            <div className={styles.suggestionActions}>
+              <button
+                type="button"
+                className={styles.saveBtn}
+                disabled={toneBusy}
+                onClick={() => void toneAction("accept")}
+              >
+                Accepteren
+              </button>
+              <button
+                type="button"
+                disabled={toneBusy}
+                onClick={() => void toneAction("tweak")}
+              >
+                Opslaan tweak
+              </button>
+              <button
+                type="button"
+                disabled={toneBusy}
+                onClick={() => void toneAction("reject")}
+              >
+                Afwijzen
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className={styles.section}>
         <h3>Over mij</h3>
         <label className={styles.field}>
           <span>Intro</span>
@@ -258,6 +482,74 @@ export function MailConfigEditor({
                 onChange={(e) => updateReply(index, { personalNote: e.target.value })}
               />
             </label>
+          </div>
+        ))}
+      </section>
+
+      <section className={styles.section}>
+        <div className={styles.sectionHead}>
+          <h3>Custom replies per contact</h3>
+          <button type="button" onClick={addContactReplySet}>
+            + Contact
+          </button>
+        </div>
+        <p className={styles.subtitle}>
+          Extra quick-reply knoppen die alleen zichtbaar zijn bij dit contact.
+        </p>
+        {config.contactReplies.map((set, setIndex) => (
+          <div key={`contact-${setIndex}`} className={styles.replyCard}>
+            <label className={styles.field}>
+              <span>E-mailadres</span>
+              <input
+                type="email"
+                value={set.contactEmail}
+                placeholder="baas@bedrijf.nl"
+                onChange={(e) => updateContactSet(setIndex, { contactEmail: e.target.value })}
+              />
+            </label>
+            <label className={styles.field}>
+              <span>Naam (optioneel)</span>
+              <input
+                value={set.contactName ?? ""}
+                onChange={(e) => updateContactSet(setIndex, { contactName: e.target.value })}
+              />
+            </label>
+            {set.replies.map((reply, replyIndex) => (
+              <div key={reply.id} className={styles.nestedReply}>
+                <label className={styles.field}>
+                  <span>Label</span>
+                  <input
+                    value={reply.label}
+                    onChange={(e) =>
+                      updateContactReply(setIndex, replyIndex, { label: e.target.value })
+                    }
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>Template</span>
+                  <textarea
+                    rows={3}
+                    value={reply.text}
+                    onChange={(e) =>
+                      updateContactReply(setIndex, replyIndex, { text: e.target.value })
+                    }
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span>AI-noot</span>
+                  <textarea
+                    rows={2}
+                    value={reply.personalNote}
+                    onChange={(e) =>
+                      updateContactReply(setIndex, replyIndex, { personalNote: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+            ))}
+            <button type="button" onClick={() => removeContactSet(setIndex)}>
+              Verwijder contact-set
+            </button>
           </div>
         ))}
       </section>

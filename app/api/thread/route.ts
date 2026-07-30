@@ -5,6 +5,7 @@ import {
   getThreadDetail,
   markThreadSeen,
   resolveFolderPath,
+  resolveThreadFromMessage,
 } from "@/lib/mailbox-service";
 
 export const dynamic = "force-dynamic";
@@ -15,17 +16,35 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   try {
-    const id = new URL(request.url).searchParams.get("id");
-    if (!id) {
-      return NextResponse.json({ error: "id verplicht" }, { status: 400 });
+    const params = new URL(request.url).searchParams;
+    const id = params.get("id");
+    const messageId = params.get("messageId");
+
+    let threadId = id?.trim() || null;
+    let preferredFolder: string | null = null;
+
+    if (!threadId && messageId) {
+      const resolved = await resolveThreadFromMessage(messageId.trim());
+      if (!resolved) {
+        return NextResponse.json({ error: "Bericht niet gevonden" }, { status: 404 });
+      }
+      threadId = resolved.threadId;
+      preferredFolder = resolved.folder;
     }
 
-    const detail = await getThreadDetail(id);
+    if (!threadId) {
+      return NextResponse.json({ error: "id of messageId verplicht" }, { status: 400 });
+    }
+
+    const detail = await getThreadDetail(threadId);
     if (!detail) {
       return NextResponse.json({ error: "Conversatie niet gevonden" }, { status: 404 });
     }
 
-    return NextResponse.json(detail);
+    return NextResponse.json({
+      ...detail,
+      folder: preferredFolder ?? detail.thread.folders[0] ?? null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Conversatie ophalen mislukt";
     console.error("[thread/get]", message, err);

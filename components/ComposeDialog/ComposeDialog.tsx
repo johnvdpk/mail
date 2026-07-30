@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
+import { isValidEmail } from "@/lib/email-validation";
+import { buildMailForm } from "@/lib/mail-form-client";
 import styles from "./ComposeDialog.module.css";
 
 type Props = {
@@ -16,10 +19,12 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
   const [text, setText] = useState("");
   const [polishing, setPolishing] = useState(false);
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = to.includes("@") && subject.trim() && text.trim();
+  const ready = isValidEmail(to) && subject.trim() && text.trim();
 
   async function polish() {
     setPolishing(true);
@@ -45,11 +50,13 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
     setSending(true);
     setError(null);
     try {
-      const res = await fetch("/api/mail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject, text }),
-      });
+      const res = await fetch(
+        "/api/mail/send",
+        {
+          method: "POST",
+          body: buildMailForm({ to, subject, text }, attachments),
+        }
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Versturen mislukt");
       onSent(`Mail verstuurd naar ${data.to}`);
@@ -96,6 +103,14 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
           <textarea value={text} onChange={(event) => setText(event.target.value)} />
         </label>
 
+        <AttachmentPicker
+          files={attachments}
+          onChange={setAttachments}
+          disabled={sending || polishing}
+          error={attachmentError}
+          onError={setAttachmentError}
+        />
+
         {notes && <p className={styles.notes}>{notes}</p>}
 
         <div className={styles.actions}>
@@ -109,7 +124,7 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
           <button
             type="button"
             className={styles.send}
-            disabled={!sendAvailable || sending || polishing || !ready}
+            disabled={!sendAvailable || sending || polishing || !ready || !!attachmentError}
             onClick={() => void send()}
           >
             {sending ? "Versturen…" : "Verstuur"}

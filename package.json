@@ -10,10 +10,12 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:migrate:prod": "node scripts/migrate.mjs",
     "test:smtp": "tsx scripts/test-smtp.ts",
-    "test:imap": "tsx scripts/test-imap-sync.ts"
+    "test:imap": "tsx scripts/test-imap-sync.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "imapflow": "^1.4.8",
+    "jszip": "^3.10.1",
     "mailparser": "^3.9.14",
     "next": "^15.1.0",
     "nodemailer": "^6.9.16",
@@ -29,6 +31,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

@@ -13,6 +13,17 @@ type Props = {
   googleConfigured: boolean;
 };
 
+function formatAddress(addr?: { name?: string; email: string }): string {
+  if (!addr) return "onbekend";
+  if (addr.name && addr.name !== addr.email) return `${addr.name} <${addr.email}>`;
+  return addr.email;
+}
+
+function formatAddressList(addrs: Array<{ name?: string; email: string }>): string {
+  if (addrs.length === 0) return "onbekend";
+  return addrs.map((a) => (a.name && a.name !== a.email ? a.name : a.email)).join(", ");
+}
+
 export function MessageCard({
   message,
   defaultOpen,
@@ -25,6 +36,11 @@ export function MessageCard({
   const [showQuote, setShowQuote] = useState(false);
   const [showHtml, setShowHtml] = useState(false);
   const ref = useRef<HTMLElement>(null);
+
+  const toLabel = formatAddressList(message.to);
+  const senderLabel = message.outbound
+    ? "Jij"
+    : message.from?.name || message.from?.email || "onbekend";
 
   useEffect(() => {
     if (isLast && ref.current) {
@@ -47,7 +63,14 @@ export function MessageCard({
         </span>
         <span className={styles.headInfo}>
           <span className={styles.sender}>
-            {message.outbound ? "Jij" : message.from?.name || message.from?.email || "onbekend"}
+            {message.outbound ? (
+              <>
+                {senderLabel}
+                <span className={styles.direction}> → {toLabel}</span>
+              </>
+            ) : (
+              senderLabel
+            )}
           </span>
           {!open && (
             <span className={styles.collapsedSnippet}>
@@ -55,17 +78,35 @@ export function MessageCard({
             </span>
           )}
         </span>
-        <span className={styles.meta}>{formatDateTime(message.date)}</span>
+        <time className={styles.meta} dateTime={message.date}>
+          {formatDateTime(message.date)}
+        </time>
       </button>
 
       {open && (
         <div className={styles.body}>
-          <p className={styles.addresses}>
-            Aan {message.to.map((t) => t.name || t.email).join(", ") || "onbekend"}
+          <dl className={styles.addressMeta}>
+            <div>
+              <dt>Van</dt>
+              <dd>{message.outbound ? formatAddress(message.from) || "Jij" : formatAddress(message.from)}</dd>
+            </div>
+            <div>
+              <dt>Aan</dt>
+              <dd>{message.to.map(formatAddress).join(", ") || "onbekend"}</dd>
+            </div>
             {message.cc.length > 0 && (
-              <span> · CC: {message.cc.map((c) => c.name || c.email).join(", ")}</span>
+              <div>
+                <dt>CC</dt>
+                <dd>{message.cc.map(formatAddress).join(", ")}</dd>
+              </div>
             )}
-          </p>
+            <div>
+              <dt>Datum</dt>
+              <dd>
+                <time dateTime={message.date}>{formatDateTime(message.date)}</time>
+              </dd>
+            </div>
+          </dl>
 
           {message.body?.calendarInvite && (
             <CalendarInviteBanner
@@ -110,20 +151,31 @@ export function MessageCard({
           )}
 
           {message.body?.attachments.length ? (
-            <ul className={styles.attachments}>
-              {message.body.attachments.map((file) => (
-                <li key={`${file.filename}-${file.size}`}>
-                  <a
-                    className={styles.attachLink}
-                    href={`/api/attachment?folder=${encodeURIComponent(message.folder)}&uid=${message.uid}&filename=${encodeURIComponent(file.filename)}`}
-                    download={file.filename}
-                  >
-                    <span className={styles.attachIcon}>📎</span>
-                    {file.filename} ({formatSize(file.size)})
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <div className={styles.attachmentsBlock}>
+              {message.body.attachments.length > 1 && (
+                <a
+                  className={styles.downloadAll}
+                  href={`/api/attachments?folder=${encodeURIComponent(message.folder)}&uid=${message.uid}`}
+                  download={`bijlagen-${message.uid}.zip`}
+                >
+                  Alles downloaden ({message.body.attachments.length})
+                </a>
+              )}
+              <ul className={styles.attachments}>
+                {message.body.attachments.map((file) => (
+                  <li key={`${file.filename}-${file.size}`}>
+                    <a
+                      className={styles.attachLink}
+                      href={`/api/attachment?folder=${encodeURIComponent(message.folder)}&uid=${message.uid}&filename=${encodeURIComponent(file.filename)}`}
+                      download={file.filename}
+                    >
+                      <span className={styles.attachIcon}>📎</span>
+                      {file.filename} ({formatSize(file.size)})
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       )}

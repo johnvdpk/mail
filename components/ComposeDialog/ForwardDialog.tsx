@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
+import { isValidEmail } from "@/lib/email-validation";
 import styles from "./ComposeDialog.module.css";
 
 type Props = {
@@ -8,7 +10,7 @@ type Props = {
   sending: boolean;
   sendAvailable: boolean;
   onClose: () => void;
-  onSend: (to: string, text: string, cc?: string, bcc?: string) => void;
+  onSend: (to: string, text: string, attachments: File[], cc?: string, bcc?: string) => void;
 };
 
 export function ForwardDialog({ subject, sending, sendAvailable, onClose, onSend }: Props) {
@@ -17,8 +19,10 @@ export function ForwardDialog({ subject, sending, sendAvailable, onClose, onSend
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [showCcBcc, setShowCcBcc] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
-  const ready = to.includes("@");
+  const ready = isValidEmail(to) && !attachmentError;
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Doorsturen">
@@ -77,12 +81,20 @@ export function ForwardDialog({ subject, sending, sendAvailable, onClose, onSend
           <textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} />
         </label>
 
+        <AttachmentPicker
+          files={attachments}
+          onChange={setAttachments}
+          disabled={sending}
+          error={attachmentError}
+          onError={setAttachmentError}
+        />
+
         <div className={styles.actions}>
           <button
             type="button"
             className={styles.send}
             disabled={!sendAvailable || sending || !ready}
-            onClick={() => onSend(to, text, cc || undefined, bcc || undefined)}
+            onClick={() => onSend(to, text, attachments, cc || undefined, bcc || undefined)}
           >
             {sending ? "Versturen…" : "Doorsturen"}
           </button>

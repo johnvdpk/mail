@@ -10,9 +10,11 @@ type Props = {
   folders: FolderSummary[];
   activeFolder: string;
   settingsActive: boolean;
+  tasksActive: boolean;
   onSelectFolder: (path: string) => void;
   onCompose: () => void;
   onOpenSettings: () => void;
+  onOpenTasks: () => void;
   onCreateFolder: (name: string) => void;
   onRenameFolder: (path: string, newName: string) => void;
   onDeleteFolder: (path: string) => void;
@@ -28,20 +30,34 @@ const ROLE_LABELS: Record<string, string> = {
   trash: "Prullenbak",
 };
 
+/** Keep Inbox first; Archive and Concepten directly below. */
+const ROLE_ORDER = ["inbox", "archive", "drafts", "sent", "junk", "trash"] as const;
+
 export function FolderRail({
   account,
   folders,
   activeFolder,
   settingsActive,
+  tasksActive,
   onSelectFolder,
   onCompose,
   onOpenSettings,
+  onOpenTasks,
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
   onLogout,
 }: Props) {
-  const known = folders.filter((f) => f.role);
+  const known = folders
+    .filter((f) => f.role)
+    .sort((a, b) => {
+      const ra = a.role ? ROLE_ORDER.indexOf(a.role as (typeof ROLE_ORDER)[number]) : -1;
+      const rb = b.role ? ROLE_ORDER.indexOf(b.role as (typeof ROLE_ORDER)[number]) : -1;
+      if (ra !== -1 && rb !== -1) return ra - rb;
+      if (ra !== -1) return -1;
+      if (rb !== -1) return 1;
+      return a.path.localeCompare(b.path);
+    });
   const custom = folders.filter((f) => !f.role);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -63,7 +79,7 @@ export function FolderRail({
             <FolderItem
               key={folder.path}
               folder={folder}
-              active={folder.path === activeFolder && !settingsActive}
+              active={folder.path === activeFolder && !settingsActive && !tasksActive}
               onSelect={onSelectFolder}
             />
           ))}
@@ -100,7 +116,7 @@ export function FolderRail({
                 ) : (
                   <li
                     key={folder.path}
-                    className={`${styles.itemRow} ${folder.path === activeFolder && !settingsActive ? styles.itemActive : ""}`}
+                    className={`${styles.itemRow} ${folder.path === activeFolder && !settingsActive && !tasksActive ? styles.itemActive : ""}`}
                     onContextMenu={(event) => {
                       event.preventDefault();
                       setEditingPath(folder.path);
@@ -111,7 +127,7 @@ export function FolderRail({
                       type="button"
                       className={styles.item}
                       onClick={() => onSelectFolder(folder.path)}
-                      aria-current={folder.path === activeFolder && !settingsActive ? "page" : undefined}
+                      aria-current={folder.path === activeFolder && !settingsActive && !tasksActive ? "page" : undefined}
                     >
                       <span className={styles.itemLabel}>{folder.name}</span>
                       {folder.unread > 0 && <span className={styles.badge}>{folder.unread}</span>}
@@ -172,6 +188,13 @@ export function FolderRail({
       <ThemeToggle />
       <button
         type="button"
+        className={`${styles.settings} ${tasksActive ? styles.settingsActive : ""}`}
+        onClick={onOpenTasks}
+      >
+        Taken
+      </button>
+      <button
+        type="button"
         className={`${styles.settings} ${settingsActive ? styles.settingsActive : ""}`}
         onClick={onOpenSettings}
       >
@@ -194,17 +217,22 @@ function FolderItem({
   onSelect: (path: string) => void;
 }) {
   const label = folder.role ? ROLE_LABELS[folder.role] ?? folder.name : folder.name;
+  const isInbox = folder.role === "inbox";
 
   return (
     <li>
       <button
         type="button"
-        className={`${styles.item} ${active ? styles.itemActive : ""}`}
+        className={`${styles.item} ${isInbox ? styles.itemInbox : ""} ${active ? styles.itemActive : ""}`}
         onClick={() => onSelect(folder.path)}
         aria-current={active ? "page" : undefined}
       >
         <span className={styles.itemLabel}>{label}</span>
-        {folder.unread > 0 && <span className={styles.badge}>{folder.unread}</span>}
+        {folder.unread > 0 && (
+          <span className={`${styles.badge} ${isInbox ? styles.badgeInbox : ""}`} aria-label={`${folder.unread} ongelezen`}>
+            {folder.unread}
+          </span>
+        )}
       </button>
     </li>
   );

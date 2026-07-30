@@ -40,6 +40,18 @@
   background: rgba(34, 197, 94, 0.12);
 }
 
+.undoBtn {
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .settings {
   grid-column: 2 / -1;
   overflow-y: auto;

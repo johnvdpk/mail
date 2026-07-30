@@ -1,6 +1,7 @@
 services:
   db:
-    image: postgres:17-alpine
+    # pgvector image required for message_embeddings (AI semantic search)
+    image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
       POSTGRES_USER: mail

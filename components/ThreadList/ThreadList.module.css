@@ -26,11 +26,16 @@
 }
 
 .sortBtn {
-  width: 100%;
+  flex: 1;
   background: var(--accent-soft);
   border-color: var(--border);
   color: var(--text);
   font-size: 0.82rem;
+}
+
+.actionRow {
+  display: flex;
+  gap: 0.4rem;
 }
 
 .sortBtn:hover:not(:disabled) {

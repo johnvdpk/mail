@@ -1,3 +1,4 @@
+import { query } from "./db";
 import { getFolders, getInboxPath } from "./folders";
 import { ownAddresses, withMailbox } from "./imap";
 import { normalizeEmail } from "./normalize";
@@ -12,6 +13,17 @@ import type {
   ThreadDetail,
   ThreadMessage,
 } from "./types";
+
+async function getActiveSnoozedIds(): Promise<Set<string>> {
+  try {
+    const { rows } = await query<{ thread_id: string }>(
+      "SELECT thread_id FROM snoozed_threads WHERE wake_at > NOW()"
+    );
+    return new Set(rows.map((r) => r.thread_id));
+  } catch {
+    return new Set();
+  }
+}
 
 /**
  * Resolve a folder path, defaulting to Inbox if not found or null.
@@ -79,16 +91,26 @@ export type FolderView = {
  */
 export async function getFolderView(requested?: string | null): Promise<FolderView> {
   const folder = await resolveFolderPath(requested);
-  const [folders, cache, all] = await Promise.all([
+  const [folders, cache, all, snoozed] = await Promise.all([
     getFolderSummaries(),
     readFolderCache(folder),
     getAllThreads(),
+    getActiveSnoozedIds(),
   ]);
+
+  const threads = all.threads.filter((thread) => {
+    if (!thread.folders.includes(folder)) return false;
+    // Hide actively snoozed conversations from the inbox list
+    if (snoozed.has(thread.id) && folders.find((f) => f.path === folder)?.role === "inbox") {
+      return false;
+    }
+    return true;
+  });
 
   return {
     folders,
     folder,
-    threads: all.threads.filter((thread) => thread.folders.includes(folder)),
+    threads,
     syncedAt: cache.syncedAt,
   };
 }
@@ -127,6 +149,22 @@ export async function getThreadDetail(threadId: string): Promise<ThreadDetail | 
   }
 
   return { thread, messages };
+}
+
+/**
+ * Resolve a local message id (folder#uid) to its conversation thread.
+ */
+export async function resolveThreadFromMessage(
+  messageId: string
+): Promise<{ threadId: string; folder: string } | null> {
+  const { threads, byId } = await getAllThreads();
+  const summary = byId.get(messageId);
+  if (!summary) return null;
+
+  const thread = threads.find((t) => t.messageIds.includes(messageId));
+  if (!thread) return null;
+
+  return { threadId: thread.id, folder: summary.folder };
 }
 
 /** Mark every message in a conversation read or unread, locally and on the server. */

@@ -12,7 +12,66 @@
 .quickRow {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.5rem;
+}
+
+.quick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--surface2);
+  border-color: var(--border);
+  font-size: 0.92rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.quick:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.quickDrafting {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.quickSuggested {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.confidence {
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.suggestHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ccRow {
@@ -62,11 +121,6 @@
   border-color: transparent;
 }
 
-.quick {
-  background: transparent;
-  font-size: 0.82rem;
-}
-
 .notes {
   margin: 0;
   font-size: 0.8rem;
@@ -97,4 +151,43 @@
   background: var(--cta-hover);
   border-color: var(--cta-hover);
   color: var(--cta-text);
+}
+
+.scheduleWrap {
+  position: relative;
+}
+
+.scheduleMenu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 10;
+  margin: 0 0 0.3rem;
+  padding: 0.3rem 0;
+  list-style: none;
+  min-width: 150px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.scheduleMenu button {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.8rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.scheduleMenu button:hover {
+  background: var(--surface2);
+}
+
+.textareaStreaming {
+  opacity: 0.92;
+  caret-color: var(--accent);
 }

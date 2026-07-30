@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { QuickReplyTemplate } from "@/lib/email-config";
+import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
+import type { QuickReplyTemplate } from "@/lib/email-config-shared";
 import styles from "./Composer.module.css";
 
 type Props = {
@@ -10,17 +11,25 @@ type Props = {
   bcc: string;
   quickReplies: QuickReplyTemplate[];
   draftingIntent: string | null;
+  suggestedIntentId?: string | null;
+  suggestedConfidence?: number | null;
+  suggestedReason?: string | null;
   polishing: boolean;
   sending: boolean;
   notes: string | null;
   aiAvailable: boolean;
   sendAvailable: boolean;
+  attachments: File[];
+  attachmentError: string | null;
   onChange: (value: string) => void;
   onCcChange: (value: string) => void;
   onBccChange: (value: string) => void;
+  onAttachmentsChange: (files: File[]) => void;
+  onAttachmentError: (message: string | null) => void;
   onQuickReply: (intent: string) => void;
   onPolish: () => void;
   onSend: () => void;
+  onScheduleSend?: (sendAtIso: string) => void;
 };
 
 const FORMAT_ACTIONS = [
@@ -36,26 +45,36 @@ export function Composer({
   bcc,
   quickReplies,
   draftingIntent,
+  suggestedIntentId,
+  suggestedConfidence,
+  suggestedReason,
   polishing,
   sending,
   notes,
   aiAvailable,
   sendAvailable,
+  attachments,
+  attachmentError,
   onChange,
   onCcChange,
   onBccChange,
+  onAttachmentsChange,
+  onAttachmentError,
   onQuickReply,
   onPolish,
   onSend,
+  onScheduleSend,
 }: Props) {
   const busy = draftingIntent !== null || polishing || sending;
+  const canSend = sendAvailable && value.trim() && !busy && !attachmentError;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showCcBcc, setShowCcBcc] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      if (sendAvailable && value.trim() && !busy) onSend();
+      if (canSend) onSend();
     }
     if ((event.ctrlKey || event.metaKey) && event.key === "b") {
       event.preventDefault();
@@ -86,20 +105,46 @@ export function Composer({
 
   return (
     <div className={styles.composer}>
-      <div className={styles.quickRow}>
-        {quickReplies.map((reply) => (
-          <button
-            key={reply.id}
-            type="button"
-            className={styles.quick}
-            title={reply.hint}
-            disabled={!aiAvailable || busy}
-            onClick={() => onQuickReply(reply.id)}
-          >
-            {draftingIntent === reply.id ? "Schrijft…" : reply.label}
-          </button>
-        ))}
+      <div className={styles.quickRow} role="group" aria-label="Snelle antwoorden">
+        {quickReplies.map((reply) => {
+          const isDrafting = draftingIntent === reply.id;
+          const isSuggested = suggestedIntentId === reply.id;
+          return (
+            <button
+              key={reply.id}
+              type="button"
+              className={`${styles.quick} ${isDrafting ? styles.quickDrafting : ""} ${isSuggested ? styles.quickSuggested : ""}`}
+              title={
+                isSuggested && suggestedReason
+                  ? `${reply.hint ?? reply.label} — ${suggestedReason}`
+                  : reply.hint
+              }
+              disabled={!aiAvailable || busy}
+              aria-busy={isDrafting}
+              onClick={() => onQuickReply(reply.id)}
+            >
+              {isDrafting ? (
+                <>
+                  <span className={styles.spinner} aria-hidden="true" />
+                  Schrijft…
+                </>
+              ) : (
+                <>
+                  {reply.label}
+                  {isSuggested && typeof suggestedConfidence === "number" && (
+                    <span className={styles.confidence}>
+                      {Math.round(suggestedConfidence * 100)}%
+                    </span>
+                  )}
+                </>
+              )}
+            </button>
+          );
+        })}
       </div>
+      {suggestedIntentId && suggestedReason && (
+        <p className={styles.suggestHint}>Suggestie: {suggestedReason}</p>
+      )}
 
       <div className={styles.ccRow}>
         {!showCcBcc ? (
@@ -147,10 +192,20 @@ export function Composer({
       <textarea
         ref={textareaRef}
         rows={7}
+        className={polishing ? styles.textareaStreaming : undefined}
         value={value}
         placeholder="Schrijf je antwoord, of laat een quick reply het concept maken."
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
+        aria-busy={polishing}
+      />
+
+      <AttachmentPicker
+        files={attachments}
+        onChange={onAttachmentsChange}
+        disabled={busy}
+        error={attachmentError}
+        onError={onAttachmentError}
       />
 
       {notes && <p className={styles.notes}>{notes}</p>}
@@ -164,10 +219,42 @@ export function Composer({
         >
           {polishing ? "Nakijken…" : "Spelling en toon"}
         </button>
+        {onScheduleSend && (
+          <div className={styles.scheduleWrap}>
+            <button
+              type="button"
+              disabled={!canSend}
+              onClick={() => setScheduleOpen(!scheduleOpen)}
+            >
+              Later
+            </button>
+            {scheduleOpen && (
+              <ul className={styles.scheduleMenu}>
+                {[
+                  { label: "Morgen 9:00", at: tomorrowNine() },
+                  { label: "Over 2 uur", at: hoursFromNow(2) },
+                  { label: "Maandag 9:00", at: nextMondayNine() },
+                ].map((item) => (
+                  <li key={item.label}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScheduleOpen(false);
+                        onScheduleSend(item.at);
+                      }}
+                    >
+                      {item.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         <button
           type="button"
           className={styles.send}
-          disabled={!sendAvailable || busy || !value.trim()}
+          disabled={!canSend}
           onClick={onSend}
         >
           {sending ? "Versturen…" : "Verstuur"}
@@ -175,4 +262,26 @@ export function Composer({
       </div>
     </div>
   );
+}
+
+function hoursFromNow(hours: number): string {
+  const d = new Date();
+  d.setHours(d.getHours() + hours);
+  return d.toISOString();
+}
+
+function tomorrowNine(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(9, 0, 0, 0);
+  return d.toISOString();
+}
+
+function nextMondayNine(): string {
+  const d = new Date();
+  const day = d.getDay();
+  const days = ((1 - day + 7) % 7) || 7;
+  d.setDate(d.getDate() + days);
+  d.setHours(9, 0, 0, 0);
+  return d.toISOString();
 }

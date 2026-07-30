@@ -110,6 +110,16 @@
   font-weight: 600;
 }
 
+.itemInbox {
+  font-weight: 600;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.itemInbox .itemLabel {
+  font-size: 0.95rem;
+}
+
 .itemLabel {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -118,14 +128,23 @@
 
 .badge {
   flex-shrink: 0;
-  min-width: 1.4rem;
-  padding: 0.1rem 0.4rem;
+  min-width: 1.5rem;
+  padding: 0.15rem 0.45rem;
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: #fff;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
+  line-height: 1.2;
+}
+
+.badgeInbox {
+  min-width: 1.7rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  background: var(--cta);
+  color: var(--cta-text);
 }
 
 .folderAction {

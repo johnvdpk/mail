@@ -1,12 +1,13 @@
-import { chatCompletion } from "./openrouter";
+import { chatCompletion, chatCompletionStream, getHeavyModel } from "./openrouter";
 import {
   buildReplyPromptContext,
   buildTonePromptContext,
   readEmailConfig,
 } from "./email-config";
 import { humanizeMailText } from "./humanize-text";
+import { parseJsonObject } from "./llm-json";
+import { extractPartialJsonStringField } from "./stream-json-body";
 import type { ThreadContext } from "./mailbox-service";
-
 export type ReplyDraftResult = {
   body: string;
   intent: string;
@@ -37,26 +38,6 @@ function formatThread(context: ThreadContext): string {
   }
 
   return lines.join("\n");
-}
-
-function stripMarkdown(raw: string): string {
-  return raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-}
-
-function parseJsonObject(raw: string): Record<string, unknown> | null {
-  const cleaned = stripMarkdown(raw);
-  try {
-    return JSON.parse(cleaned) as Record<string, unknown>;
-  } catch {
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    if (start === -1 || end <= start) return null;
-    try {
-      return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
 }
 
 function stringArray(value: unknown, limit: number): string[] {
@@ -111,7 +92,7 @@ ${formatThread(context)}
 Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.`,
       },
     ],
-    { jsonMode: true, temperature: 0.35 }
+    { jsonMode: true, temperature: 0.35, model: getHeavyModel() }
   );
 
   const parsed = parseJsonObject(raw);
@@ -119,6 +100,53 @@ Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.
 
   if (!body.trim()) throw new Error("Lege AI-draft");
   return { body: body.trim(), intent };
+}
+
+/** Streaming variant of draftReply — yields incremental body text, then the final result. */
+export async function* streamDraftReply(
+  context: ThreadContext,
+  intent: string
+): AsyncGenerator<{ body: string; final?: ReplyDraftResult }> {
+  const config = await readEmailConfig();
+  const template = config.replies.find((r) => r.id === intent);
+  const systemPrompt = `${REPLY_SYSTEM}\n\n${buildReplyPromptContext(config, intent)}`;
+
+  const intentHint = template?.hint
+    ? `Intentie: ${template.label}. ${template.hint}`
+    : `Intentie: ${intent}`;
+
+  let raw = "";
+  let lastBody = "";
+
+  for await (const delta of chatCompletionStream(
+    [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `${intentHint}
+
+=== CONVERSATIE ===
+${formatThread(context)}
+
+Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.`,
+      },
+    ],
+    { jsonMode: true, temperature: 0.35, model: getHeavyModel() }
+  )) {
+    raw += delta;
+    const partial = extractPartialJsonStringField(raw, "body");
+    if (partial !== null && partial !== lastBody) {
+      lastBody = partial;
+      yield { body: partial };
+    }
+  }
+
+  const parsed = parseJsonObject(raw);
+  const body = humanizeMailText(typeof parsed?.body === "string" ? parsed.body : raw);
+  if (!body.trim()) throw new Error("Lege AI-draft");
+
+  const result = { body: body.trim(), intent };
+  yield { body: result.body, final: result };
 }
 
 const POLISH_SYSTEM = `Je corrigeert spelling en grammatica van een e-mailconcept van John.
@@ -164,6 +192,44 @@ export async function polishDraft(
   return { body: body.trim(), notes };
 }
 
+/** Streaming variant of polishDraft — yields incremental body text, then the final result. */
+export async function* streamPolishDraft(
+  context: ThreadContext | null,
+  draft: string
+): AsyncGenerator<{ body: string; final?: PolishResult }> {
+  const config = await readEmailConfig();
+  const threadBlock = context
+    ? `\n=== CONVERSATIE (context) ===\n${formatThread(context)}\n`
+    : "";
+
+  let raw = "";
+  let lastBody = "";
+
+  for await (const delta of chatCompletionStream(
+    [
+      { role: "system", content: `${POLISH_SYSTEM}\n\n${buildTonePromptContext(config)}` },
+      {
+        role: "user",
+        content: `${threadBlock}\n=== CONCEPT ===\n${draft}\n\nCorrigeer spelling en grammatica met behoud van tone of voice.`,
+      },
+    ],
+    { jsonMode: true, temperature: 0.2 }
+  )) {
+    raw += delta;
+    const partial = extractPartialJsonStringField(raw, "body");
+    if (partial !== null && partial !== lastBody) {
+      lastBody = partial;
+      yield { body: partial };
+    }
+  }
+
+  const parsed = parseJsonObject(raw);
+  const body = humanizeMailText(typeof parsed?.body === "string" ? parsed.body : draft);
+  const notes = typeof parsed?.notes === "string" ? parsed.notes.trim() : "";
+  const result = { body: body.trim(), notes };
+  yield { body: result.body, final: result };
+}
+
 const TIPS_SYSTEM = `Je analyseert een e-mailconversatie voor John.
 Geef een korte samenvatting, praktische tips en concrete talking points.
 Let op openstaande vragen, deadlines en beloftes die John of de ander heeft gedaan.
@@ -201,5 +267,65 @@ export async function suggestTips(context: ThreadContext): Promise<TipsResult> {
     summary: typeof parsed?.summary === "string" ? parsed.summary.trim() : "",
     tips: stringArray(parsed?.tips, 5),
     talkingPoints: stringArray(parsed?.talkingPoints, 5),
+  };
+}
+
+export type ExtractedTask = {
+  title: string;
+  notes?: string;
+};
+
+export type ExtractTasksResult = {
+  summary: string;
+  tasks: ExtractedTask[];
+};
+
+const TASKS_SYSTEM = `Je haalt concrete taken/actiepunten uit een e-mailconversatie voor John.
+Focus op wat John (of zijn team) moet doen: to-do's, deliverables, deadlines, openstaande acties.
+Als er een expliciete takenlijst in de mail staat, neem die zo getrouw mogelijk over.
+Negeer praatjes, begroetingen en pure informatie zonder actie.
+Maximaal 25 taken. Titels kort en uitvoerbaar (imperatief of checkliststijl).
+
+Antwoord uitsluitend als JSON-object:
+- summary (string, 1 tot 3 zinnen context)
+- tasks (array van objecten met: title (string), notes (string, optioneel, kort))`;
+
+/**
+ * Extract actionable tasks from an email thread for a markdown checklist export.
+ */
+export async function extractTasks(context: ThreadContext): Promise<ExtractTasksResult> {
+  const config = await readEmailConfig();
+
+  const raw = await chatCompletion(
+    [
+      { role: "system", content: `${TASKS_SYSTEM}\n\n${buildTonePromptContext(config)}` },
+      {
+        role: "user",
+        content: `=== CONVERSATIE ===\n${formatThread(context)}\n\nHaal alle taken/actiepunten eruit.`,
+      },
+    ],
+    { jsonMode: true, temperature: 0.2, model: getHeavyModel() }
+  );
+
+  const parsed = parseJsonObject(raw);
+  const tasksRaw = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
+  const tasks: ExtractedTask[] = [];
+
+  for (const item of tasksRaw.slice(0, 25)) {
+    if (typeof item === "string" && item.trim()) {
+      tasks.push({ title: item.trim() });
+      continue;
+    }
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const title = typeof row.title === "string" ? row.title.trim() : "";
+    if (!title) continue;
+    const notes = typeof row.notes === "string" ? row.notes.trim() : undefined;
+    tasks.push(notes ? { title, notes } : { title });
+  }
+
+  return {
+    summary: typeof parsed?.summary === "string" ? parsed.summary.trim() : "",
+    tasks,
   };
 }

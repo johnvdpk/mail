@@ -81,6 +81,36 @@ a.saveBtn {
   font-size: 1rem;
 }
 
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.metaLine {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.suggestionBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.suggestionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -108,4 +138,13 @@ a.saveBtn {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--card);
+}
+
+.nestedReply {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
 }

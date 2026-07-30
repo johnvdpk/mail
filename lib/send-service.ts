@@ -3,8 +3,9 @@ import { withImap, withMailbox } from "./imap";
 import { sendMail, type OutgoingMail } from "./mail";
 import { forwardSubject, normalizeMessageId, replySubject } from "./normalize";
 import { counterpartOf, getThreadDetail } from "./mailbox-service";
+import type { OutgoingAttachment } from "./outgoing-attachments";
 import { syncFolder } from "./sync";
-import type { ThreadDetail } from "./types";
+import type { ThreadDetail, ThreadMessage } from "./types";
 
 /** Store our own copy in the Sent folder so it is not lost after sending. */
 async function appendToSent(raw: Buffer): Promise<void> {
@@ -44,6 +45,7 @@ export async function sendNewMail(input: {
   to: string;
   subject: string;
   text: string;
+  attachments?: OutgoingAttachment[];
 }): Promise<SendResult> {
   const { messageId, raw } = await sendMail(input);
   await appendToSent(raw);
@@ -51,6 +53,13 @@ export async function sendNewMail(input: {
 }
 
 function threadingHeaders(detail: ThreadDetail): Pick<OutgoingMail, "inReplyTo" | "references"> {
+  return buildThreadingHeaders(detail);
+}
+
+/** Build In-Reply-To / References headers from a thread (pure, testable). */
+export function buildThreadingHeaders(
+  detail: ThreadDetail
+): Pick<OutgoingMail, "inReplyTo" | "references"> {
   const references: string[] = [];
   const seen = new Set<string>();
 
@@ -69,11 +78,29 @@ function threadingHeaders(detail: ThreadDetail): Pick<OutgoingMail, "inReplyTo" 
   };
 }
 
+type ForwardMessageInput = Pick<
+  ThreadMessage,
+  "from" | "date" | "subject" | "to" | "body" | "snippet"
+>;
+
+/** Build the forwarded message block appended to a forward (pure, testable). */
+export function buildForwardedBody(messages: ForwardMessageInput[]): string {
+  return messages
+    .map((m) => {
+      const from = m.from ? `${m.from.name || ""} <${m.from.email}>`.trim() : "onbekend";
+      const date = new Date(m.date).toLocaleString("nl-NL");
+      const body = m.body?.text ?? m.snippet;
+      return `---------- Doorgestuurd bericht ----------\nVan: ${from}\nDatum: ${date}\nOnderwerp: ${m.subject}\nAan: ${m.to.map((t) => t.email).join(", ")}\n\n${body}`;
+    })
+    .join("\n\n");
+}
+
 export async function sendThreadReply(input: {
   threadId: string;
   text: string;
   cc?: string;
   bcc?: string;
+  attachments?: OutgoingAttachment[];
 }): Promise<SendResult> {
   const detail = await getThreadDetail(input.threadId);
   if (!detail) throw new Error("Conversatie niet gevonden");
@@ -90,6 +117,7 @@ export async function sendThreadReply(input: {
     text: input.text,
     cc: input.cc || undefined,
     bcc: input.bcc || undefined,
+    attachments: input.attachments,
     ...threadingHeaders(detail),
   });
 
@@ -105,6 +133,7 @@ export async function forwardThread(input: {
   text: string;
   cc?: string;
   bcc?: string;
+  attachments?: OutgoingAttachment[];
 }): Promise<SendResult> {
   const detail = await getThreadDetail(input.threadId);
   if (!detail) throw new Error("Conversatie niet gevonden");
@@ -112,14 +141,7 @@ export async function forwardThread(input: {
   const last = detail.messages[detail.messages.length - 1];
   const subject = forwardSubject(last?.subject ?? detail.thread.subject);
 
-  const forwardedBody = detail.messages
-    .map((m) => {
-      const from = m.from ? `${m.from.name || ""} <${m.from.email}>`.trim() : "onbekend";
-      const date = new Date(m.date).toLocaleString("nl-NL");
-      const body = m.body?.text ?? m.snippet;
-      return `---------- Doorgestuurd bericht ----------\nVan: ${from}\nDatum: ${date}\nOnderwerp: ${m.subject}\nAan: ${m.to.map((t) => t.email).join(", ")}\n\n${body}`;
-    })
-    .join("\n\n");
+  const forwardedBody = buildForwardedBody(detail.messages);
 
   const fullText = input.text ? `${input.text}\n\n${forwardedBody}` : forwardedBody;
 
@@ -129,6 +151,7 @@ export async function forwardThread(input: {
     text: fullText,
     cc: input.cc || undefined,
     bcc: input.bcc || undefined,
+    attachments: input.attachments,
   });
 
   await appendToSent(raw);

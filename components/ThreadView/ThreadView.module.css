@@ -172,6 +172,11 @@
   font-size: 0.9rem;
 }
 
+.direction {
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .collapsedSnippet {
   font-size: 0.78rem;
   color: var(--muted);
@@ -188,6 +193,34 @@
 
 .body {
   padding: 0 0.9rem 0.9rem;
+}
+
+.addressMeta {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.addressMeta > div {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.addressMeta dt {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.addressMeta dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .addresses {
@@ -262,8 +295,27 @@
   text-decoration-color: var(--accent);
 }
 
-.attachments {
+.attachmentsBlock {
   margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.downloadAll {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.downloadAll:hover {
+  text-decoration: underline;
+}
+
+.attachments {
+  margin: 0;
   padding: 0;
   list-style: none;
   display: flex;

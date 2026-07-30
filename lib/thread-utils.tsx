@@ -1,14 +1,19 @@
 /** Format a datetime ISO string for display in nl-NL locale. */
 export function formatDateTime(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleString("nl-NL", {
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+  if (Number.isNaN(date.getTime())) return iso;
+
+  const now = new Date();
+  const sameYear = date.getFullYear() === now.getFullYear();
+
+  return date.toLocaleString("nl-NL", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(sameYear ? {} : { year: "numeric" }),
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 /** Format bytes as human-readable size (B, kB, MB). */

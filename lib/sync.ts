@@ -74,6 +74,18 @@ export async function syncFolder(folderPath: string): Promise<SyncResult> {
       messages,
     });
 
+    // Best-effort embeddings for new mail (subject/snippet); body enrich later.
+    if (newSummaries.length > 0) {
+      void import("./embeddings")
+        .then(({ ensureEmbeddingsForMessageIds }) =>
+          ensureEmbeddingsForMessageIds(
+            newSummaries.map((m) => m.id),
+            { limit: 30 }
+          )
+        )
+        .catch((err) => console.error("[sync] embeddings", err));
+    }
+
     return {
       folder: folderPath,
       added: newSummaries.length,
@@ -326,25 +338,34 @@ export async function loadBody(
   return body;
 }
 
+export type FetchedAttachment = {
+  data: Buffer;
+  contentType: string;
+  filename: string;
+};
+
 export async function fetchAttachment(
   folderPath: string,
   uid: number,
   filename: string
-): Promise<{ data: Buffer; contentType: string; filename: string } | null> {
+): Promise<FetchedAttachment | null> {
+  const all = await fetchAllAttachments(folderPath, uid);
+  return all.find((a) => a.filename === filename) ?? null;
+}
+
+export async function fetchAllAttachments(
+  folderPath: string,
+  uid: number
+): Promise<FetchedAttachment[]> {
   return withMailbox(folderPath, async (client) => {
     const message = await client.fetchOne(String(uid), { source: true }, { uid: true });
-    if (!message || typeof message === "boolean" || !message.source) return null;
+    if (!message || typeof message === "boolean" || !message.source) return [];
 
     const parsed = await simpleParser(message.source);
-    const match = (parsed.attachments ?? []).find(
-      (a) => (a.filename ?? "bijlage") === filename
-    );
-    if (!match) return null;
-
-    return {
-      data: match.content,
-      contentType: match.contentType ?? "application/octet-stream",
-      filename: match.filename ?? "bijlage",
-    };
+    return (parsed.attachments ?? []).map((item) => ({
+      data: item.content,
+      contentType: item.contentType ?? "application/octet-stream",
+      filename: item.filename ?? "bijlage",
+    }));
   });
 }

@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { polishDraft } from "@/lib/ai-mail";
+import { streamPolishDraft } from "@/lib/ai-mail";
+import { ndjsonStream, streamResponse } from "@/lib/ai-stream";
 import { getThreadDetail, toThreadContext } from "@/lib/mailbox-service";
 import { isOpenRouterConfigured } from "@/lib/openrouter";
 
@@ -26,9 +27,28 @@ export async function POST(request: Request) {
     }
 
     const detail = body.threadId ? await getThreadDetail(body.threadId) : null;
-    const result = await polishDraft(detail ? toThreadContext(detail) : null, text);
+    const context = detail ? toThreadContext(detail) : null;
 
-    return NextResponse.json({ ok: true, ...result });
+    return streamResponse(
+      ndjsonStream(async (emit) => {
+        let lastBody = "";
+
+        for await (const update of streamPolishDraft(context, text)) {
+          if (update.body !== lastBody) {
+            lastBody = update.body;
+            emit({ type: "chunk", body: update.body });
+          }
+
+          if (update.final) {
+            emit({
+              type: "done",
+              body: update.final.body,
+              notes: update.final.notes || undefined,
+            });
+          }
+        }
+      })
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Correctie mislukt";
     console.error("[ai/polish]", message, err);

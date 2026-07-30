@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
 import { buildMailHtml, ensureSignature } from "./email-template";
 import { env, loadEnvFromFile } from "./env";
+import type { OutgoingAttachment } from "./outgoing-attachments";
 
 export function isSmtpConfigured(): boolean {
   loadEnvFromFile();
@@ -65,6 +66,7 @@ export type OutgoingMail = {
   bcc?: string;
   inReplyTo?: string;
   references?: string[];
+  attachments?: OutgoingAttachment[];
 };
 
 export type SentMail = {
@@ -89,6 +91,15 @@ function buildMessage(input: OutgoingMail): Mail.Options {
     ...(input.inReplyTo ? { inReplyTo: formatMessageId(input.inReplyTo) } : {}),
     ...(input.references?.length
       ? { references: input.references.map(formatMessageId).join(" ") }
+      : {}),
+    ...(input.attachments?.length
+      ? {
+          attachments: input.attachments.map((file) => ({
+            filename: file.filename,
+            content: file.content,
+            contentType: file.contentType,
+          })),
+        }
       : {}),
   };
 }

@@ -220,6 +220,46 @@ export async function writeBody(body: MessageBody): Promise<void> {
       body.loadedAt,
     ]
   );
+
+  // Best-effort: refresh embedding now that full body text is available.
+  void refreshEmbeddingForBody(body.id, body.text).catch((err) =>
+    console.error("[store] embedding refresh", err)
+  );
+}
+
+async function refreshEmbeddingForBody(messageId: string, textBody: string): Promise<void> {
+  const { isOpenRouterConfigured } = await import("./openrouter");
+  if (!isOpenRouterConfigured() || !textBody.trim()) return;
+
+  const {
+    buildEmbedText,
+    createEmbedding,
+    hasEmbedding,
+    upsertMessageEmbedding,
+  } = await import("./embeddings");
+
+  // Skip if we already have an embedding (subject/snippet from sync is enough until re-index).
+  if (await hasEmbedding(messageId)) return;
+
+  const row = await queryOne<{
+    subject: string;
+    snippet: string;
+    from_name: string | null;
+    from_email: string | null;
+  }>(`SELECT subject, snippet, from_name, from_email FROM messages WHERE id = $1`, [messageId]);
+  if (!row) return;
+
+  const text = buildEmbedText({
+    subject: row.subject,
+    snippet: row.snippet,
+    fromName: row.from_name,
+    fromEmail: row.from_email,
+    textBody,
+  });
+  if (!text.trim()) return;
+
+  const embedding = await createEmbedding(text);
+  await upsertMessageEmbedding(messageId, embedding);
 }
 
 // ── Row mapping ──────────────────────────────────────────────────────
