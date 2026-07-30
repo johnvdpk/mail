@@ -49,10 +49,11 @@ const REPLY_SYSTEM = `Je helpt John met een korte e-mail reply.
 Je krijgt de volledige conversatie en een reply-template met een intentie.
 
 Schrijf ALLEEN de body van de reply (geen onderwerpregel).
-Sluit af met "Groeten,\\nJohn".
+TAAL: schrijf in de taal van de conversatie (laatste berichten). Engels gesprek → Engels reply. Nederlands → Nederlands. Vertaal niet.
+Sluit af passend bij die taal: Nederlands "Groeten,\\nJohn"; Engels "Best regards,\\nJohn" (of korter als de thread informeel is).
 KRITISCH: gebruik NOOIT puntkomma's (;) en NOOIT streepjes als leesteken (geen " - ", " — ", " – ").
 Gebruik lege regels tussen alinea's (\\n\\n). Houd het kort en menselijk.
-Behoud Johns tone of voice strikt.
+Behoud Johns tone of voice strikt (toon/stijl, niet de taal van de regels forceren).
 
 Antwoord uitsluitend als JSON-object met exact deze key:
 - body (string, gebruik \\n voor regeleinden)`;
@@ -153,6 +154,11 @@ const POLISH_SYSTEM = `Je corrigeert spelling en grammatica van een e-mailconcep
 Behoud zijn tone of voice, woordkeuze en intentie. Verander de betekenis niet en voeg geen claims toe.
 KRITISCH: gebruik NOOIT puntkomma's (;) en NOOIT streepjes als leesteken.
 
+TAAL (hoogste prioriteit):
+- Schrijf ALTIJD in dezelfde taal als het CONCEPT. Engels concept → Engels output. Nederlands → Nederlands.
+- Vertaal NOOIT. Pas tone-of-voice regels toe in die taal (bijv. "Groeten" alleen bij Nederlands; bij Engels "Best regards," / "Cheers," / wat bij het concept past).
+- Notes in dezelfde taal als het concept.
+
 Antwoord uitsluitend als JSON-object:
 - body (string, gecorrigeerde mailbody)
 - notes (string, kort wat je aanpaste, leeg als er niets veranderde)`;
@@ -179,7 +185,7 @@ export async function polishDraft(
       { role: "system", content: `${POLISH_SYSTEM}\n\n${buildTonePromptContext(config)}` },
       {
         role: "user",
-        content: `${threadBlock}\n=== CONCEPT ===\n${draft}\n\nCorrigeer spelling en grammatica met behoud van tone of voice.`,
+        content: `${threadBlock}\n=== CONCEPT ===\n${draft}\n\nCorrigeer spelling en grammatica. Behoud de taal van het CONCEPT exact (geen vertaling). Behoud tone of voice.`,
       },
     ],
     { jsonMode: true, temperature: 0.2 }
@@ -210,7 +216,7 @@ export async function* streamPolishDraft(
       { role: "system", content: `${POLISH_SYSTEM}\n\n${buildTonePromptContext(config)}` },
       {
         role: "user",
-        content: `${threadBlock}\n=== CONCEPT ===\n${draft}\n\nCorrigeer spelling en grammatica met behoud van tone of voice.`,
+        content: `${threadBlock}\n=== CONCEPT ===\n${draft}\n\nCorrigeer spelling en grammatica. Behoud de taal van het CONCEPT exact (geen vertaling). Behoud tone of voice.`,
       },
     ],
     { jsonMode: true, temperature: 0.2 }

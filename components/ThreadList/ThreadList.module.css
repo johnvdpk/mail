@@ -178,3 +178,23 @@
     max-height: 45vh;
   }
 }
+
+@media (max-width: 720px) {
+  .pane {
+    border-bottom: 0;
+    height: 100%;
+  }
+
+  .list {
+    max-height: none;
+  }
+
+  .head {
+    padding: 0.65rem;
+  }
+
+  .searchRow input {
+    min-width: 0;
+    font-size: 0.9rem;
+  }
+}

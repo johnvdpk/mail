@@ -113,3 +113,15 @@
     border-top: 1px solid var(--border);
   }
 }
+
+@media (max-width: 720px) {
+  .drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    width: 100%;
+    max-width: none;
+    border: 0;
+    background: var(--surface);
+  }
+}

@@ -68,30 +68,39 @@ export function MailApp({
     [emailConfig, counterpartEmail]
   );
 
+  const mobileView =
+    state.showSettings || state.showTasksLibrary
+      ? "settings"
+      : state.activeThreadId
+        ? "thread"
+        : "list";
+
   return (
-    <div className={styles.shell}>
-      <FolderRail
-        account={account}
-        folders={state.folders}
-        activeFolder={state.folder}
-        settingsActive={state.showSettings}
-        tasksActive={state.showTasksLibrary}
-        onSelectFolder={(path) => void state.selectFolder(path)}
-        onCompose={() => state.setComposeOpen(true)}
-        onOpenSettings={() => {
-          state.setShowTasksLibrary(false);
-          state.setShowSettings(true);
-        }}
-        onOpenTasks={() => void state.openTasksLibrary()}
-        onCreateFolder={(name) => void state.folderAction("create", name)}
-        onRenameFolder={(path, newName) => void state.folderAction("rename", path, newName)}
-        onDeleteFolder={(path) => void state.folderAction("delete", path)}
-        onLogout={() => {
-          void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
-            window.location.reload();
-          });
-        }}
-      />
+    <div className={styles.shell} data-mobile-view={mobileView}>
+      <div className={styles.navCol}>
+        <FolderRail
+          account={account}
+          folders={state.folders}
+          activeFolder={state.folder}
+          settingsActive={state.showSettings}
+          tasksActive={state.showTasksLibrary}
+          onSelectFolder={(path) => void state.selectFolder(path)}
+          onCompose={() => state.setComposeOpen(true)}
+          onOpenSettings={() => {
+            state.setShowTasksLibrary(false);
+            state.setShowSettings(true);
+          }}
+          onOpenTasks={() => void state.openTasksLibrary()}
+          onCreateFolder={(name) => void state.folderAction("create", name)}
+          onRenameFolder={(path, newName) => void state.folderAction("rename", path, newName)}
+          onDeleteFolder={(path) => void state.folderAction("delete", path)}
+          onLogout={() => {
+            void fetch("/api/auth/logout", { method: "POST" }).finally(() => {
+              window.location.reload();
+            });
+          }}
+        />
+      </div>
 
       {state.showSettings ? (
         <ErrorBoundary title="Instellingen konden niet worden geladen">
@@ -124,24 +133,26 @@ export function MailApp({
       ) : (
         <ErrorBoundary title="De mailbox kon niet worden geladen">
           <>
-            <ThreadList
-            threads={state.visibleThreads}
-            account={account}
-            activeThreadId={state.activeThreadId}
-            filter={state.filter}
-            search={state.search}
-            syncing={state.syncing}
-            syncedAt={state.syncedAt}
-            sortAvailable={imapReady && aiReady}
-            sorting={state.sortingPreview}
-            searchAvailable={aiReady}
-            onSelect={(id) => void state.openThread(id)}
-            onFilterChange={state.setFilter}
-            onSearchChange={state.setSearch}
-            onSync={() => void state.sync(state.folder)}
-            onSortInbox={() => void state.previewSort()}
-            onOpenMailSearch={() => void state.openSearch()}
-          />
+            <div className={styles.listCol}>
+              <ThreadList
+                threads={state.visibleThreads}
+                account={account}
+                activeThreadId={state.activeThreadId}
+                filter={state.filter}
+                search={state.search}
+                syncing={state.syncing}
+                syncedAt={state.syncedAt}
+                sortAvailable={imapReady && aiReady}
+                sorting={state.sortingPreview}
+                searchAvailable={aiReady}
+                onSelect={(id) => void state.openThread(id)}
+                onFilterChange={state.setFilter}
+                onSearchChange={state.setSearch}
+                onSync={() => void state.sync(state.folder)}
+                onSortInbox={() => void state.previewSort()}
+                onOpenMailSearch={() => void state.openSearch()}
+              />
+            </div>
 
           <main className={styles.main}>
             {(state.error || state.notice || state.undoSeconds !== null) && (
@@ -168,6 +179,7 @@ export function MailApp({
               tasksOpen={state.tasksOpen}
               googleConnected={state.googleConnected}
               googleConfigured={state.googleConfigured}
+              onBack={state.closeThread}
               onToggleAi={() => {
                 const next = !state.aiOpen;
                 state.setAiOpen(next);

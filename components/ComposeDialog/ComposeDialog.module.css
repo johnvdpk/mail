@@ -102,3 +102,27 @@
   border-color: var(--cta-hover);
   color: var(--cta-text);
 }
+
+@media (max-width: 720px) {
+  .backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .dialog {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    border: 0;
+    padding: 1rem 0.85rem;
+  }
+
+  .bodyField textarea {
+    min-height: 180px;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+}

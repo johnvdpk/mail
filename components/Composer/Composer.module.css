@@ -191,3 +191,31 @@
   opacity: 0.92;
   caret-color: var(--accent);
 }
+
+@media (max-width: 720px) {
+  .composer {
+    padding: 0.65rem 0.75rem 0.85rem;
+    gap: 0.45rem;
+  }
+
+  .quick {
+    min-height: 2.25rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.85rem;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .hint {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+
+  .actions > button,
+  .scheduleWrap {
+    flex: 1 1 auto;
+  }
+}

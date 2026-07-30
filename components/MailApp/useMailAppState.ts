@@ -271,6 +271,24 @@ export function useMailAppState(
     }
   }
 
+  /** Clear the open thread (used for mobile back-to-list). */
+  function closeThread() {
+    setActiveThreadId(null);
+    setDetail(null);
+    setDetailLoading(false);
+    setReplyText("");
+    setReplyCc("");
+    setReplyBcc("");
+    setReplyAttachments([]);
+    setReplyAttachmentError(null);
+    setPolishNotes(null);
+    setTips(null);
+    setTasksDoc(null);
+    setAiOpen(false);
+    setTasksOpen(false);
+    setPreviewOpen(false);
+  }
+
   async function loadIntentSuggestion(threadId: string) {
     try {
       const res = await fetch(`/api/ai/intent?threadId=${encodeURIComponent(threadId)}`);
@@ -1053,6 +1071,7 @@ export function useMailAppState(
     sync,
     selectFolder,
     openThread,
+    closeThread,
     setSeen,
     quickReply,
     polishReply,

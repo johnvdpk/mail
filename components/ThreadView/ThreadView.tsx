@@ -14,6 +14,8 @@ type Props = {
   tasksOpen: boolean;
   googleConnected: boolean;
   googleConfigured: boolean;
+  /** Mobile: return to the thread list */
+  onBack?: () => void;
   onToggleAi: () => void;
   onToggleTasks: () => void;
   onMarkUnread: () => void;
@@ -34,6 +36,7 @@ export function ThreadView({
   tasksOpen,
   googleConnected,
   googleConfigured,
+  onBack,
   onToggleAi,
   onToggleTasks,
   onMarkUnread,
@@ -59,6 +62,11 @@ export function ThreadView({
     <div className={styles.wrap} key={detail.thread.id}>
       <header className={styles.head}>
         <div className={styles.headText}>
+          {onBack && (
+            <button type="button" className={styles.backBtn} onClick={onBack}>
+              ← Terug
+            </button>
+          )}
           <h2 className={styles.subject}>{detail.thread.subject}</h2>
           <p className={styles.participants}>
             {detail.thread.participants

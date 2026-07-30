@@ -44,6 +44,13 @@ export function humanizeMailText(text: string): string {
     /\s*(Groeten,\s*\n?\s*John)\s*$/i,
     "\n\nGroeten,\nJohn"
   );
+  out = out.replace(
+    /\s*((?:Best regards|Kind regards|Cheers|Regards),?\s*\n?\s*John)\s*$/i,
+    (_m, closing: string) => {
+      const label = closing.replace(/,?\s*\n?\s*John\s*$/i, "").trim().replace(/,$/, "");
+      return `\n\n${label},\nJohn`;
+    }
+  );
   out = out.replace(/\n{3,}/g, "\n\n");
 
   out = out.replace(new RegExp(`${URL_TOKEN}(\\d+)${URL_TOKEN}`, "g"), (_, i) => urls[Number(i)] ?? "");

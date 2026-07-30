@@ -51,9 +51,10 @@ export type WritingProfile = {
 export const DEFAULT_EMAIL_CONFIG: EmailConfig = {
   toneOfVoice: {
     rules: `Warm, kort en menselijk. Informeel maar professioneel.
-Gebruik je/jij waar dat past, geen salespraat.
+Gebruik je/jij (NL) of you (EN) waar dat past, geen salespraat.
 Houd mijn toon: nuchter, direct, vriendelijk. Geen AI-lof.
-Sluit af met "Groeten,\\nJohn".
+Schrijf in de taal van het concept of de conversatie — vertaal nooit.
+Sluit af: NL "Groeten,\\nJohn"; EN "Best regards,\\nJohn" (of korter als informeel).
 Geen telefoonnummer of links in de body (die staan in de handtekening).
 Geen streepjes of puntkomma's (dat klinkt AI-achtig).
 Houd het kort: liever te kort dan te lang.`,
@@ -99,6 +100,9 @@ export function buildTonePromptContext(config: EmailConfig): string {
     lines.push(`Vermijd woorden/zinnen: ${config.toneOfVoice.avoidWords}`);
   }
   lines.push(`Maximaal ~${config.toneOfVoice.maxWords} woorden.`);
+  lines.push(
+    "TAAL: pas deze toonregels toe in de taal van het concept/de conversatie. Vertaal nooit naar een andere taal."
+  );
   lines.push("\n=== OVER MIJ (afzender John) ===");
   lines.push(config.aboutMe.intro);
   lines.push(config.aboutMe.background);
