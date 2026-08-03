@@ -67,16 +67,34 @@ export function FolderRail({
   const [newName, setNewName] = useState("");
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [navOpen, setNavOpen] = useState(false);
+
+  const selectFolder = (path: string) => {
+    setNavOpen(false);
+    onSelectFolder(path);
+  };
 
   return (
     <nav className={styles.rail} aria-label="Mappen">
       <div className={styles.head}>
+        <button
+          type="button"
+          className={styles.hamburger}
+          aria-label={navOpen ? "Menu sluiten" : "Menu openen"}
+          aria-expanded={navOpen}
+          onClick={() => setNavOpen((open) => !open)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
         <p className={styles.account}>{account}</p>
         <button type="button" className={styles.compose} onClick={onCompose}>
           Nieuwe mail
         </button>
       </div>
 
+      <div className={`${styles.navBody} ${navOpen ? styles.navOpen : ""}`}>
       <div className={styles.scrollable}>
         <ul className={styles.list}>
           {known.map((folder) => (
@@ -84,7 +102,7 @@ export function FolderRail({
               key={folder.path}
               folder={folder}
               active={folder.path === activeFolder && !settingsActive && !tasksActive}
-              onSelect={onSelectFolder}
+              onSelect={selectFolder}
             />
           ))}
         </ul>
@@ -130,7 +148,7 @@ export function FolderRail({
                     <button
                       type="button"
                       className={styles.item}
-                      onClick={() => onSelectFolder(folder.path)}
+                      onClick={() => selectFolder(folder.path)}
                       aria-current={folder.path === activeFolder && !settingsActive && !tasksActive ? "page" : undefined}
                     >
                       <span className={styles.itemLabel}>{folder.name}</span>
@@ -193,27 +211,37 @@ export function FolderRail({
       <button
         type="button"
         className={`${styles.settings} ${tasksActive ? styles.settingsActive : ""}`}
-        onClick={onOpenTasks}
+        onClick={() => {
+          setNavOpen(false);
+          onOpenTasks();
+        }}
       >
         Taken
       </button>
       <button
         type="button"
         className={`${styles.settings} ${ticketsActive ? styles.settingsActive : ""}`}
-        onClick={onOpenTickets}
+        onClick={() => {
+          setNavOpen(false);
+          onOpenTickets();
+        }}
       >
         Tickets
       </button>
       <button
         type="button"
         className={`${styles.settings} ${settingsActive ? styles.settingsActive : ""}`}
-        onClick={onOpenSettings}
+        onClick={() => {
+          setNavOpen(false);
+          onOpenSettings();
+        }}
       >
         Instellingen
       </button>
       <button type="button" className={styles.logout} onClick={onLogout}>
         Uitloggen
       </button>
+      </div>
     </nav>
   );
 }
