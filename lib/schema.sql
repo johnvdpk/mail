@@ -174,3 +174,29 @@ CREATE TABLE IF NOT EXISTS message_embeddings (
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Dev tickets: user files a request, a nightly cron picks it up and lets
+-- Claude Code work on it in an isolated git worktree/branch for review.
+CREATE TABLE IF NOT EXISTS tickets (
+  id          SERIAL PRIMARY KEY,
+  title       TEXT NOT NULL,
+  description TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'open', -- open, in_progress, review, done, rejected
+  branch      TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_runs (
+  id           SERIAL PRIMARY KEY,
+  ticket_id    INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  finished_at  TIMESTAMPTZ,
+  status       TEXT NOT NULL DEFAULT 'running', -- running, success, failed
+  branch       TEXT NOT NULL,
+  summary      TEXT,
+  agent_log    TEXT,
+  diff_stat    TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_runs_ticket ON ticket_runs(ticket_id);
+

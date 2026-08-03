@@ -16,6 +16,7 @@ import { SortReview } from "@/components/SortReview/SortReview";
 import { MailSearch } from "@/components/MailSearch/MailSearch";
 import { TasksLibrary } from "@/components/TasksLibrary/TasksLibrary";
 import { TasksPanel } from "@/components/TasksPanel/TasksPanel";
+import { TicketsPanel } from "@/components/TicketsPanel/TicketsPanel";
 import { ThreadList } from "@/components/ThreadList/ThreadList";
 import { ThreadView } from "@/components/ThreadView/ThreadView";
 import { useMailAppState } from "./useMailAppState";
@@ -84,13 +85,16 @@ export function MailApp({
           activeFolder={state.folder}
           settingsActive={state.showSettings}
           tasksActive={state.showTasksLibrary}
+          ticketsActive={state.showTickets}
           onSelectFolder={(path) => void state.selectFolder(path)}
           onCompose={() => state.setComposeOpen(true)}
           onOpenSettings={() => {
             state.setShowTasksLibrary(false);
+            state.setShowTickets(false);
             state.setShowSettings(true);
           }}
           onOpenTasks={() => void state.openTasksLibrary()}
+          onOpenTickets={() => void state.openTickets()}
           onCreateFolder={(name) => void state.folderAction("create", name)}
           onRenameFolder={(path, newName) => void state.folderAction("rename", path, newName)}
           onDeleteFolder={(path) => void state.folderAction("delete", path)}
@@ -127,6 +131,20 @@ export function MailApp({
               onSelect={(id) => void state.selectTasksLibraryItem(id)}
               onDelete={(id) => void state.deleteTasksLibraryItem(id)}
               onClose={() => state.setShowTasksLibrary(false)}
+            />
+          </div>
+        </ErrorBoundary>
+      ) : state.showTickets ? (
+        <ErrorBoundary title="Tickets konden niet worden geladen">
+          <div className={styles.settings}>
+            <TicketsPanel
+              items={state.tickets}
+              active={state.activeTicket}
+              loading={state.ticketsLoading}
+              submitting={state.ticketSubmitting}
+              onSelect={(id) => void state.selectTicket(id)}
+              onCreate={(title, description) => void state.createTicket(title, description)}
+              onClose={() => state.setShowTickets(false)}
             />
           </div>
         </ErrorBoundary>

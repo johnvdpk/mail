@@ -10,6 +10,7 @@ import type { SortSuggestion } from "@/lib/sort-types";
 import type { SortConfirmItem } from "@/components/SortReview/SortReview";
 import type { ContactStatus, ContactView, SearchJobSummary, SearchJobView } from "@/lib/search-types";
 import type { EmbeddingBackfillStatus } from "@/lib/embeddings";
+import type { TicketDetail, TicketSummary } from "@/lib/tickets";
 
 const POLL_INTERVAL_MS = 60_000;
 const SEARCH_POLL_MS = 8_000;
@@ -81,6 +82,11 @@ export function useMailAppState(
   const [previewText, setPreviewText] = useState("");
   const [previewStreaming, setPreviewStreaming] = useState(false);
   const [undoSeconds, setUndoSeconds] = useState<number | null>(null);
+  const [showTickets, setShowTickets] = useState(false);
+  const [tickets, setTickets] = useState<TicketSummary[]>([]);
+  const [activeTicket, setActiveTicket] = useState<TicketDetail | null>(null);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
 
   const syncingRef = useRef(false);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -319,6 +325,7 @@ export function useMailAppState(
   async function selectFolder(path: string) {
     setShowSettings(false);
     setShowTasksLibrary(false);
+    setShowTickets(false);
     setFolder(path);
     setActiveThreadId(null);
     setDetail(null);
@@ -650,6 +657,68 @@ export function useMailAppState(
       await loadTasksLibrary();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verwijderen mislukt");
+    }
+  }
+
+  async function loadTickets(selectId?: number) {
+    setTicketsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/tickets");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Tickets ophalen mislukt");
+      const items = (data.tickets ?? []) as TicketSummary[];
+      setTickets(items);
+
+      const targetId = selectId ?? activeTicket?.id ?? items[0]?.id;
+      if (targetId) {
+        await selectTicket(targetId);
+      } else {
+        setActiveTicket(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Tickets ophalen mislukt");
+    } finally {
+      setTicketsLoading(false);
+    }
+  }
+
+  async function openTickets() {
+    setShowSettings(false);
+    setShowTasksLibrary(false);
+    setShowTickets(true);
+    await loadTickets();
+  }
+
+  async function selectTicket(id: number) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/tickets/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ticket ophalen mislukt");
+      setActiveTicket(data.ticket as TicketDetail);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ticket ophalen mislukt");
+    }
+  }
+
+  async function createTicket(title: string, description: string) {
+    setTicketSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, description }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ticket aanmaken mislukt");
+      setNotice("Ticket aangemaakt");
+      await loadTickets(data.ticket?.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ticket aanmaken mislukt");
+    } finally {
+      setTicketSubmitting(false);
     }
   }
 
@@ -1101,5 +1170,14 @@ export function useMailAppState(
     updateContactStatus,
     setGoogleConnected,
     setGoogleConfigured,
+    showTickets,
+    setShowTickets,
+    tickets,
+    activeTicket,
+    ticketsLoading,
+    ticketSubmitting,
+    openTickets,
+    selectTicket,
+    createTicket,
   };
 }

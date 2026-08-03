@@ -11,10 +11,12 @@ type Props = {
   activeFolder: string;
   settingsActive: boolean;
   tasksActive: boolean;
+  ticketsActive: boolean;
   onSelectFolder: (path: string) => void;
   onCompose: () => void;
   onOpenSettings: () => void;
   onOpenTasks: () => void;
+  onOpenTickets: () => void;
   onCreateFolder: (name: string) => void;
   onRenameFolder: (path: string, newName: string) => void;
   onDeleteFolder: (path: string) => void;
@@ -39,10 +41,12 @@ export function FolderRail({
   activeFolder,
   settingsActive,
   tasksActive,
+  ticketsActive,
   onSelectFolder,
   onCompose,
   onOpenSettings,
   onOpenTasks,
+  onOpenTickets,
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
@@ -192,6 +196,13 @@ export function FolderRail({
         onClick={onOpenTasks}
       >
         Taken
+      </button>
+      <button
+        type="button"
+        className={`${styles.settings} ${ticketsActive ? styles.settingsActive : ""}`}
+        onClick={onOpenTickets}
+      >
+        Tickets
       </button>
       <button
         type="button"
