@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { EmailConfig } from "@/lib/email-config-shared";
 import { repliesForContact } from "@/lib/email-config-shared";
 import type { FolderSummary, Thread } from "@/lib/types";
@@ -68,6 +68,53 @@ export function MailApp({
     () => repliesForContact(emailConfig, counterpartEmail),
     [emailConfig, counterpartEmail]
   );
+
+  useEffect(() => {
+    const dialogOpen =
+      state.showSettings ||
+      state.showTasksLibrary ||
+      state.showTickets ||
+      state.composeOpen ||
+      state.forwardOpen ||
+      state.previewOpen ||
+      state.searchOpen ||
+      Boolean(state.sortSuggestions);
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (dialogOpen) return;
+
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        state.selectAdjacentThread(1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        state.selectAdjacentThread(-1);
+      } else if ((event.key === "Delete" || event.key === "Backspace") && state.activeThreadId) {
+        event.preventDefault();
+        void state.threadAction(state.activeThreadId, "delete");
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    state.visibleThreads,
+    state.activeThreadId,
+    state.showSettings,
+    state.showTasksLibrary,
+    state.showTickets,
+    state.composeOpen,
+    state.forwardOpen,
+    state.previewOpen,
+    state.searchOpen,
+    state.sortSuggestions,
+    state.selectAdjacentThread,
+    state.threadAction,
+  ]);
 
   const mobileView =
     state.showSettings || state.showTasksLibrary
