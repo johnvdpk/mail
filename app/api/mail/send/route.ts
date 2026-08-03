@@ -20,9 +20,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const { to, subject, text, attachments } = await parseMailForm(request);
+    const { to, subject, text, cc, bcc, attachments } = await parseMailForm(request);
 
-    const recipientError = validateOutgoingRecipients({ to });
+    const recipientError = validateOutgoingRecipients({ to, cc, bcc });
     if (recipientError) {
       return NextResponse.json({ error: recipientError }, { status: 400 });
     }
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Tekst verplicht" }, { status: 400 });
     }
 
-    const result = await sendNewMail({ to, subject, text, attachments });
+    const result = await sendNewMail({ to, subject, text, cc, bcc, attachments });
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Versturen mislukt";

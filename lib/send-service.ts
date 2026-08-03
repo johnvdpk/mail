@@ -45,6 +45,8 @@ export async function sendNewMail(input: {
   to: string;
   subject: string;
   text: string;
+  cc?: string;
+  bcc?: string;
   attachments?: OutgoingAttachment[];
 }): Promise<SendResult> {
   const { messageId, raw } = await sendMail(input);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
-import { isValidEmail } from "@/lib/email-validation";
+import { isValidEmailList } from "@/lib/email-validation";
 import styles from "./ComposeDialog.module.css";
 
 type Props = {
@@ -22,7 +22,7 @@ export function ForwardDialog({ subject, sending, sendAvailable, onClose, onSend
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
 
-  const ready = isValidEmail(to) && !attachmentError;
+  const ready = isValidEmailList(to) && !attachmentError;
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Doorsturen">
@@ -37,9 +37,9 @@ export function ForwardDialog({ subject, sending, sendAvailable, onClose, onSend
         <label className={styles.field}>
           <span>Aan</span>
           <input
-            type="email"
+            type="text"
             value={to}
-            placeholder="naam@voorbeeld.nl"
+            placeholder="naam@voorbeeld.nl (meerdere adressen: gescheiden door komma's)"
             onChange={(e) => setTo(e.target.value)}
             autoFocus
           />

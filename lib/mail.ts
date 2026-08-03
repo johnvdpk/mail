@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
 import { buildMailHtml, ensureSignature } from "./email-template";
+import { parseEmailList } from "./email-validation";
 import { env, loadEnvFromFile } from "./env";
 import type { OutgoingAttachment } from "./outgoing-attachments";
 
@@ -126,7 +127,12 @@ export async function sendMail(input: OutgoingMail): Promise<SentMail> {
     raw,
     envelope: {
       from,
-      to: [input.to, ...envelopeBcc()],
+      to: [
+        ...parseEmailList(input.to),
+        ...parseEmailList(input.cc ?? ""),
+        ...parseEmailList(input.bcc ?? ""),
+        ...envelopeBcc(),
+      ],
     },
   });
 
