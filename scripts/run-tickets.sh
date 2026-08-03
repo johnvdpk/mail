@@ -93,21 +93,22 @@ en welke bestanden."
   claude_exit=$?
   set -e
 
-  diffstat=$(git diff main --stat 2>/dev/null | tail -1 || true)
+  # Claude commit doorgaans zelf al (zoals gevraagd in de prompt). Vang
+  # eventuele restwijzigingen die hij vergat te committen alsnog op.
   git add -A
+  if ! git diff --cached --quiet; then
+    git commit -q -m "Ticket #${id}: ${title} (aanvullende wijzigingen)"
+  fi
 
-  if git diff --cached --quiet; then
+  diffstat=$(git diff main..."$branch" --stat 2>/dev/null | tail -1 || true)
+  commits_ahead=$(git rev-list --count main.."$branch")
+
+  if [ "$commits_ahead" -gt 0 ] && [ "$claude_exit" -eq 0 ]; then
+    status="success"
+    new_ticket_status="review"
+  else
     status="failed"
     new_ticket_status="open"
-  else
-    git commit -q -m "Ticket #${id}: ${title}"
-    if [ "$claude_exit" -eq 0 ]; then
-      status="success"
-      new_ticket_status="review"
-    else
-      status="failed"
-      new_ticket_status="open"
-    fi
   fi
 
   summary=$(tail -c "$MAX_LOG_CHARS" "$log_file")
