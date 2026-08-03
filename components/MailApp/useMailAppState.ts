@@ -277,6 +277,18 @@ export function useMailAppState(
     }
   }
 
+  /** Open the thread before/after the current one in the visible list (arrow key navigation). */
+  function selectAdjacentThread(direction: 1 | -1) {
+    if (visibleThreads.length === 0) return;
+    const currentIndex = visibleThreads.findIndex((t) => t.id === activeThreadId);
+    const nextIndex =
+      currentIndex === -1
+        ? 0
+        : Math.min(Math.max(currentIndex + direction, 0), visibleThreads.length - 1);
+    const next = visibleThreads[nextIndex];
+    if (next && next.id !== activeThreadId) void openThread(next.id);
+  }
+
   /** Clear the open thread (used for mobile back-to-list). */
   function closeThread() {
     setActiveThreadId(null);
@@ -1140,6 +1152,7 @@ export function useMailAppState(
     sync,
     selectFolder,
     openThread,
+    selectAdjacentThread,
     closeThread,
     setSeen,
     quickReply,
