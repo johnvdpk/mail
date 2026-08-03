@@ -23,8 +23,9 @@ export function isValidEmailList(value: string): boolean {
   return emails.every(isValidEmail);
 }
 
+/** Required recipient field; accepts one or more comma/semicolon-separated addresses. */
 export function validateRequiredEmail(value: string): string | null {
-  if (!isValidEmail(value)) return "Geldig e-mailadres verplicht";
+  if (!isValidEmailList(value)) return "Geldig e-mailadres verplicht";
   return null;
 }
 
@@ -50,7 +51,7 @@ export function validateOutgoingRecipients(
   if (requireTo) {
     const toError = validateRequiredEmail(fields.to ?? "");
     if (toError) return toError;
-  } else if (fields.to?.trim() && !isValidEmail(fields.to)) {
+  } else if (fields.to?.trim() && !isValidEmailList(fields.to)) {
     return "Geldig e-mailadres verplicht";
   }
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
-import { isValidEmail } from "@/lib/email-validation";
+import { isValidEmailList } from "@/lib/email-validation";
 import { buildMailForm } from "@/lib/mail-form-client";
 import styles from "./ComposeDialog.module.css";
 
@@ -15,6 +15,9 @@ type Props = {
 
 export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: Props) {
   const [to, setTo] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
+  const [showCcBcc, setShowCcBcc] = useState(false);
   const [subject, setSubject] = useState("");
   const [text, setText] = useState("");
   const [polishing, setPolishing] = useState(false);
@@ -24,7 +27,7 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
   const [notes, setNotes] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const ready = isValidEmail(to) && subject.trim() && text.trim();
+  const ready = isValidEmailList(to) && subject.trim() && text.trim();
 
   async function polish() {
     setPolishing(true);
@@ -54,7 +57,7 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
         "/api/mail/send",
         {
           method: "POST",
-          body: buildMailForm({ to, subject, text }, attachments),
+          body: buildMailForm({ to, subject, text, cc: cc || undefined, bcc: bcc || undefined }, attachments),
         }
       );
       const data = await res.json();
@@ -82,12 +85,39 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
         <label className={styles.field}>
           <span>Aan</span>
           <input
-            type="email"
+            type="text"
             value={to}
-            placeholder="naam@voorbeeld.nl"
+            placeholder="naam@voorbeeld.nl (meerdere adressen: gescheiden door komma's)"
             onChange={(event) => setTo(event.target.value)}
           />
         </label>
+
+        {!showCcBcc ? (
+          <button type="button" className={styles.close} onClick={() => setShowCcBcc(true)}>
+            CC / BCC toevoegen
+          </button>
+        ) : (
+          <>
+            <label className={styles.field}>
+              <span>CC</span>
+              <input
+                type="text"
+                value={cc}
+                placeholder="CC"
+                onChange={(event) => setCc(event.target.value)}
+              />
+            </label>
+            <label className={styles.field}>
+              <span>BCC</span>
+              <input
+                type="text"
+                value={bcc}
+                placeholder="BCC"
+                onChange={(event) => setBcc(event.target.value)}
+              />
+            </label>
+          </>
+        )}
 
         <label className={styles.field}>
           <span>Onderwerp</span>
