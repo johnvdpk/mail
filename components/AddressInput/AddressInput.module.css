@@ -1,0 +1,52 @@
+.wrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.2rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.menu li {
+  display: block;
+}
+
+.menu button {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.menu button:hover,
+.menu button.active {
+  background: var(--hover, rgba(0, 0, 0, 0.06));
+}
+
+.name {
+  font-weight: 500;
+}
+
+.email {
+  color: var(--muted);
+  font-size: 0.8rem;
+}

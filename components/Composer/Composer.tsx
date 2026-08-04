@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { AddressInput } from "@/components/AddressInput/AddressInput";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
 import type { QuickReplyTemplate } from "@/lib/email-config-shared";
 import styles from "./Composer.module.css";
@@ -167,19 +168,17 @@ export function Composer({
           </button>
         ) : (
           <>
-            <input
-              type="text"
+            <AddressInput
               className={styles.ccInput}
               placeholder="CC"
               value={cc}
-              onChange={(e) => onCcChange(e.target.value)}
+              onChange={onCcChange}
             />
-            <input
-              type="text"
+            <AddressInput
               className={styles.ccInput}
               placeholder="BCC"
               value={bcc}
-              onChange={(e) => onBccChange(e.target.value)}
+              onChange={onBccChange}
             />
           </>
         )}
