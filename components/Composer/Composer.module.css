@@ -9,6 +9,14 @@
   animation: fade-up var(--dur) var(--ease);
 }
 
+.expandToggle {
+  display: none;
+}
+
+.fields {
+  display: contents;
+}
+
 .quickRow {
   display: flex;
   flex-wrap: wrap;
@@ -195,6 +203,27 @@
 @media (max-width: 720px) {
   .composer {
     padding: 0.65rem 0.75rem 0.85rem;
+    gap: 0.45rem;
+  }
+
+  .expandToggle {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    background: var(--surface2);
+    border-color: var(--border);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .fields {
+    display: none;
+  }
+
+  .composer[data-expanded="true"] .fields {
+    display: flex;
+    flex-direction: column;
     gap: 0.45rem;
   }
 

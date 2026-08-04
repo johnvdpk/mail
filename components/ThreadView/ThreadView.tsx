@@ -50,6 +50,7 @@ export function ThreadView({
   const [moveOpen, setMoveOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [followOpen, setFollowOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   if (loading) {
     return <p className={styles.placeholder}>Conversatie wordt geladen…</p>;
@@ -84,99 +85,110 @@ export function ThreadView({
           >
             {detail.thread.flagged ? "★" : "☆"}
           </button>
-          <button type="button" onClick={onMarkUnread}>
-            Ongelezen
+          <button
+            type="button"
+            className={styles.moreToggle}
+            onClick={() => setMoreOpen(!moreOpen)}
+            aria-expanded={moreOpen}
+            aria-label="Meer acties"
+          >
+            ⋯
           </button>
-          <div className={styles.moveWrap}>
-            <button type="button" onClick={() => { setMoveOpen(!moveOpen); setSnoozeOpen(false); setFollowOpen(false); }}>
-              Verplaatsen
+          <div className={styles.secondaryActions} data-open={moreOpen}>
+            <button type="button" onClick={onMarkUnread}>
+              Ongelezen
             </button>
-            {moveOpen && (
-              <ul className={styles.moveMenu}>
-                {folders
-                  .filter((f) => !detail.thread.folders.includes(f.path))
-                  .map((f) => (
-                    <li key={f.path}>
+            <div className={styles.moveWrap}>
+              <button type="button" onClick={() => { setMoveOpen(!moveOpen); setSnoozeOpen(false); setFollowOpen(false); }}>
+                Verplaatsen
+              </button>
+              {moveOpen && (
+                <ul className={styles.moveMenu}>
+                  {folders
+                    .filter((f) => !detail.thread.folders.includes(f.path))
+                    .map((f) => (
+                      <li key={f.path}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoveOpen(false);
+                            onMove(f.path);
+                          }}
+                        >
+                          {f.role
+                            ? { inbox: "Inbox", sent: "Verzonden", drafts: "Concepten", trash: "Prullenbak", junk: "Spam", archive: "Archief" }[f.role] ?? f.name
+                            : f.name}
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+            <button type="button" onClick={onForward}>
+              Doorsturen
+            </button>
+            <div className={styles.moveWrap}>
+              <button type="button" onClick={() => { setSnoozeOpen(!snoozeOpen); setFollowOpen(false); setMoveOpen(false); }}>
+                Snooze
+              </button>
+              {snoozeOpen && (
+                <ul className={styles.moveMenu}>
+                  {(
+                    [
+                      ["1h", "Over 1 uur"],
+                      ["tomorrow", "Morgen 9:00"],
+                      ["friday", "Vrijdag 9:00"],
+                      ["nextweek", "Volgende week"],
+                    ] as const
+                  ).map(([option, label]) => (
+                    <li key={option}>
                       <button
                         type="button"
                         onClick={() => {
-                          setMoveOpen(false);
-                          onMove(f.path);
+                          setSnoozeOpen(false);
+                          onSnooze(option);
                         }}
                       >
-                        {f.role
-                          ? { inbox: "Inbox", sent: "Verzonden", drafts: "Concepten", trash: "Prullenbak", junk: "Spam", archive: "Archief" }[f.role] ?? f.name
-                          : f.name}
+                        {label}
                       </button>
                     </li>
                   ))}
-              </ul>
-            )}
-          </div>
-          <button type="button" onClick={onForward}>
-            Doorsturen
-          </button>
-          <div className={styles.moveWrap}>
-            <button type="button" onClick={() => { setSnoozeOpen(!snoozeOpen); setFollowOpen(false); setMoveOpen(false); }}>
-              Snooze
+                </ul>
+              )}
+            </div>
+            <div className={styles.moveWrap}>
+              <button type="button" onClick={() => { setFollowOpen(!followOpen); setSnoozeOpen(false); setMoveOpen(false); }}>
+                Follow-up
+              </button>
+              {followOpen && (
+                <ul className={styles.moveMenu}>
+                  {[
+                    [2, "Over 2 dagen"],
+                    [3, "Over 3 dagen"],
+                    [7, "Over 1 week"],
+                  ].map(([days, label]) => (
+                    <li key={String(days)}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFollowOpen(false);
+                          onFollowUp(Number(days));
+                        }}
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button type="button" onClick={onDelete} className={styles.deleteBtn}>
+              Verwijder
             </button>
-            {snoozeOpen && (
-              <ul className={styles.moveMenu}>
-                {(
-                  [
-                    ["1h", "Over 1 uur"],
-                    ["tomorrow", "Morgen 9:00"],
-                    ["friday", "Vrijdag 9:00"],
-                    ["nextweek", "Volgende week"],
-                  ] as const
-                ).map(([option, label]) => (
-                  <li key={option}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSnoozeOpen(false);
-                        onSnooze(option);
-                      }}
-                    >
-                      {label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className={styles.moveWrap}>
-            <button type="button" onClick={() => { setFollowOpen(!followOpen); setSnoozeOpen(false); setMoveOpen(false); }}>
-              Follow-up
+            <button type="button" onClick={onToggleTasks} aria-pressed={tasksOpen}>
+              {tasksOpen ? "Taken verbergen" : "Taken"}
             </button>
-            {followOpen && (
-              <ul className={styles.moveMenu}>
-                {[
-                  [2, "Over 2 dagen"],
-                  [3, "Over 3 dagen"],
-                  [7, "Over 1 week"],
-                ].map(([days, label]) => (
-                  <li key={String(days)}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFollowOpen(false);
-                        onFollowUp(Number(days));
-                      }}
-                    >
-                      {label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
-          <button type="button" onClick={onDelete} className={styles.deleteBtn}>
-            Verwijder
-          </button>
-          <button type="button" onClick={onToggleTasks} aria-pressed={tasksOpen}>
-            {tasksOpen ? "Taken verbergen" : "Taken"}
-          </button>
           <button type="button" onClick={onToggleAi} aria-pressed={aiOpen}>
             {aiOpen ? "AI verbergen" : "AI-hulp"}
           </button>
