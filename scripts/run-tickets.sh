@@ -14,6 +14,8 @@
 
 set -euo pipefail
 
+export PATH="/root/.local/bin:$PATH"
+
 REPO="/root/mail"
 DB_CONTAINER="mail-db-1"
 HEALTH_URL="https://mail.aiadapt.nl"
