@@ -70,6 +70,7 @@ export function Composer({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -104,7 +105,16 @@ export function Composer({
   }
 
   return (
-    <div className={styles.composer}>
+    <div className={styles.composer} data-expanded={expanded}>
+      <button
+        type="button"
+        className={styles.expandToggle}
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+      >
+        {expanded ? "▾ Antwoord inklappen" : "✎ Antwoorden"}
+      </button>
+      <div className={styles.fields}>
       <div className={styles.quickRow} role="group" aria-label="Snelle antwoorden">
         {quickReplies.map((reply) => {
           const isDrafting = draftingIntent === reply.id;
@@ -259,6 +269,7 @@ export function Composer({
         >
           {sending ? "Versturen…" : "Verstuur"}
         </button>
+      </div>
       </div>
     </div>
   );

@@ -77,6 +77,14 @@
   background: rgba(239, 68, 68, 0.12);
 }
 
+.moreToggle {
+  display: none;
+}
+
+.secondaryActions {
+  display: contents;
+}
+
 .moveWrap {
   position: relative;
 }
@@ -400,5 +408,21 @@
 
   .subject {
     font-size: 0.98rem;
+  }
+
+  .moreToggle {
+    display: inline-flex;
+  }
+
+  .secondaryActions {
+    display: none;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    width: 100%;
+    order: 10;
+  }
+
+  .secondaryActions[data-open="true"] {
+    display: flex;
   }
 }
