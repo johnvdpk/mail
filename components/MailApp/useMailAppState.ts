@@ -11,6 +11,7 @@ import type { SortConfirmItem } from "@/components/SortReview/SortReview";
 import type { ContactStatus, ContactView, SearchJobSummary, SearchJobView } from "@/lib/search-types";
 import type { EmbeddingBackfillStatus } from "@/lib/embeddings";
 import type { TicketDetail, TicketSummary } from "@/lib/tickets";
+import { applyUnreadIndicator, notifyNewMail } from "./unread-indicator";
 
 const POLL_INTERVAL_MS = 60_000;
 const SEARCH_POLL_MS = 8_000;
@@ -93,6 +94,7 @@ export function useMailAppState(
   const undoCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingSendRef = useRef<null | (() => Promise<void>)>(null);
   const pendingDraftRef = useRef<string | null>(null);
+  const prevInboxUnreadRef = useRef<number | null>(null);
 
   const inboxPath = useMemo(() => folders.find((f) => f.role === "inbox")?.path ?? "INBOX", [folders]);
 
@@ -180,6 +182,23 @@ export function useMailAppState(
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [folder, imapReady, sync]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      void Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    const inboxUnread = folders.find((f) => f.role === "inbox")?.unread ?? 0;
+    applyUnreadIndicator(inboxUnread);
+    const prev = prevInboxUnreadRef.current;
+    if (prev !== null && inboxUnread > prev) {
+      notifyNewMail(inboxUnread - prev);
+    }
+    prevInboxUnreadRef.current = inboxUnread;
+  }, [folders]);
 
   function applyEmbeddingProgress(data: {
     embeddingBackfill?: EmbeddingBackfillStatus & { created?: number };
