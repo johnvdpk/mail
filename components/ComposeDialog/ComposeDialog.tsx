@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AddressInput } from "@/components/AddressInput/AddressInput";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
 import { isValidEmailList } from "@/lib/email-validation";
 import { buildMailForm } from "@/lib/mail-form-client";
@@ -84,11 +85,10 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
 
         <label className={styles.field}>
           <span>Aan</span>
-          <input
-            type="text"
+          <AddressInput
             value={to}
             placeholder="naam@voorbeeld.nl (meerdere adressen: gescheiden door komma's)"
-            onChange={(event) => setTo(event.target.value)}
+            onChange={setTo}
           />
         </label>
 
@@ -100,21 +100,11 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
           <>
             <label className={styles.field}>
               <span>CC</span>
-              <input
-                type="text"
-                value={cc}
-                placeholder="CC"
-                onChange={(event) => setCc(event.target.value)}
-              />
+              <AddressInput value={cc} placeholder="CC" onChange={setCc} />
             </label>
             <label className={styles.field}>
               <span>BCC</span>
-              <input
-                type="text"
-                value={bcc}
-                placeholder="BCC"
-                onChange={(event) => setBcc(event.target.value)}
-              />
+              <AddressInput value={bcc} placeholder="BCC" onChange={setBcc} />
             </label>
           </>
         )}
