@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AddressInput } from "@/components/AddressInput/AddressInput";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
+import { MicButton } from "@/components/MicButton/MicButton";
 import { isValidEmailList } from "@/lib/email-validation";
 import { buildMailForm } from "@/lib/mail-form-client";
 import styles from "./ComposeDialog.module.css";
@@ -120,7 +121,17 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
 
         <label className={`${styles.field} ${styles.bodyField}`}>
           <span>Bericht</span>
-          <textarea value={text} onChange={(event) => setText(event.target.value)} />
+          <div className={styles.textareaWrap}>
+            <textarea value={text} onChange={(event) => setText(event.target.value)} />
+            <div className={styles.textareaMic}>
+              <MicButton
+                disabled={sending || polishing}
+                onText={(addition) =>
+                  setText((prev) => (prev.trim() ? `${prev.trim()} ${addition}` : addition))
+                }
+              />
+            </div>
+          </div>
         </label>
 
         <AttachmentPicker

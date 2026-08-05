@@ -39,6 +39,19 @@
   resize: none;
 }
 
+.textareaWrap {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.textareaMic {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+}
+
 .head {
   display: flex;
   justify-content: space-between;

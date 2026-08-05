@@ -74,6 +74,18 @@
   font-family: inherit;
 }
 
+.inputWithMic {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.inputWithMic input,
+.inputWithMic textarea {
+  flex: 1;
+  min-width: 0;
+}
+
 .newFormActions {
   display: flex;
   gap: 0.4rem;

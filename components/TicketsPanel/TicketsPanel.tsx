@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { TicketDetail, TicketSummary } from "@/lib/tickets";
+import { MicButton } from "@/components/MicButton/MicButton";
 import styles from "./TicketsPanel.module.css";
 
 type Props = {
@@ -13,6 +14,11 @@ type Props = {
   onCreate: (title: string, description: string) => void;
   onClose: () => void;
 };
+
+function appendText(current: string, addition: string): string {
+  const trimmed = current.trim();
+  return trimmed ? `${trimmed} ${addition}` : addition;
+}
 
 const STATUS_LABELS: Record<TicketSummary["status"], string> = {
   open: "Open",
@@ -64,18 +70,24 @@ export function TicketsPanel({
                 setCreating(false);
               }}
             >
-              <input
-                value={title}
-                placeholder="Titel (bijv. 'Mobiel werkt niet goed')"
-                onChange={(event) => setTitle(event.target.value)}
-                autoFocus
-              />
-              <textarea
-                value={description}
-                placeholder="Omschrijving: wat werkt niet, wat moet er gebeuren?"
-                rows={5}
-                onChange={(event) => setDescription(event.target.value)}
-              />
+              <div className={styles.inputWithMic}>
+                <input
+                  value={title}
+                  placeholder="Titel (bijv. 'Mobiel werkt niet goed')"
+                  onChange={(event) => setTitle(event.target.value)}
+                  autoFocus
+                />
+                <MicButton onText={(text) => setTitle((prev) => appendText(prev, text))} />
+              </div>
+              <div className={styles.inputWithMic}>
+                <textarea
+                  value={description}
+                  placeholder="Omschrijving: wat werkt niet, wat moet er gebeuren?"
+                  rows={5}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+                <MicButton onText={(text) => setDescription((prev) => appendText(prev, text))} />
+              </div>
               <div className={styles.newFormActions}>
                 <button type="submit" disabled={submitting || !title.trim() || !description.trim()}>
                   {submitting ? "Aanmaken…" : "Ticket aanmaken"}
