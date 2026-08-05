@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { AddressInput } from "@/components/AddressInput/AddressInput";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
+import { MicButton } from "@/components/MicButton/MicButton";
 import type { QuickReplyTemplate } from "@/lib/email-config-shared";
 import styles from "./Composer.module.css";
 
@@ -198,16 +199,24 @@ export function Composer({
         ))}
       </div>
 
-      <textarea
-        ref={textareaRef}
-        rows={7}
-        className={polishing ? styles.textareaStreaming : undefined}
-        value={value}
-        placeholder="Schrijf je antwoord, of laat een quick reply het concept maken."
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={onKeyDown}
-        aria-busy={polishing}
-      />
+      <div className={styles.textareaWrap}>
+        <textarea
+          ref={textareaRef}
+          rows={7}
+          className={polishing ? styles.textareaStreaming : undefined}
+          value={value}
+          placeholder="Schrijf je antwoord, of laat een quick reply het concept maken."
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={onKeyDown}
+          aria-busy={polishing}
+        />
+        <div className={styles.textareaMic}>
+          <MicButton
+            disabled={busy}
+            onText={(text) => onChange(value.trim() ? `${value.trim()} ${text}` : text)}
+          />
+        </div>
+      </div>
 
       <AttachmentPicker
         files={attachments}

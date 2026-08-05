@@ -3,6 +3,7 @@ import { env, loadEnvFromFile } from "./env";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const DEFAULT_HEAVY_MODEL = "anthropic/claude-sonnet-4.5";
+const DEFAULT_TRANSCRIBE_MODEL = "google/gemini-2.5-flash";
 
 export function isOpenRouterConfigured(): boolean {
   loadEnvFromFile();
@@ -19,6 +20,12 @@ export function getLightModel(): string {
 export function getHeavyModel(): string {
   loadEnvFromFile();
   return env("OPENROUTER_MODEL_HEAVY") ?? DEFAULT_HEAVY_MODEL;
+}
+
+/** Model met audio-ondersteuning voor spraak-naar-tekst. */
+export function getTranscribeModel(): string {
+  loadEnvFromFile();
+  return env("OPENROUTER_MODEL_TRANSCRIBE") ?? DEFAULT_TRANSCRIBE_MODEL;
 }
 
 type ChatMessage = {
@@ -146,4 +153,65 @@ export async function* chatCompletionStream(
       }
     }
   }
+}
+
+/** Transcribeert een audio-opname (base64) naar tekst via een audio-capable model op OpenRouter. */
+export async function transcribeAudio(
+  audioBase64: string,
+  format: string
+): Promise<string> {
+  const apiKey = env("OPENROUTER_AI");
+  if (!apiKey) {
+    throw new Error("OPENROUTER_AI niet geconfigureerd in .env.local (projectroot)");
+  }
+
+  const response = await fetch(OPENROUTER_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "HTTP-Referer": "https://aiadapt.nl",
+      "X-OpenRouter-Title": "Mail AI",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: getTranscribeModel(),
+      temperature: 0,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Transcribeer deze audio-opname letterlijk naar tekst, in de taal die gesproken wordt. Geef alleen de getranscribeerde tekst terug, zonder aanhalingstekens of extra uitleg.",
+            },
+            {
+              type: "input_audio",
+              input_audio: { data: audioBase64, format },
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => "");
+    throw new Error(`OpenRouter fout (${response.status}): ${errBody.slice(0, 200)}`);
+  }
+
+  const data = (await response.json()) as {
+    choices?: { message?: { content?: string } }[];
+    error?: { message?: string };
+  };
+
+  if (data.error?.message) {
+    throw new Error(data.error.message);
+  }
+
+  const content = data.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error("Leeg antwoord van OpenRouter");
+  }
+
+  return content;
 }

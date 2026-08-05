@@ -200,6 +200,16 @@
   caret-color: var(--accent);
 }
 
+.textareaWrap {
+  position: relative;
+}
+
+.textareaMic {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+}
+
 @media (max-width: 720px) {
   .composer {
     padding: 0.65rem 0.75rem 0.85rem;
