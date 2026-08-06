@@ -88,6 +88,7 @@ export function useMailAppState(
   const [activeTicket, setActiveTicket] = useState<TicketDetail | null>(null);
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
   const syncingRef = useRef(false);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -753,6 +754,25 @@ export function useMailAppState(
     }
   }
 
+  async function addTicketComment(ticketId: number, body: string) {
+    setCommentSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Reactie plaatsen mislukt");
+      await selectTicket(ticketId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reactie plaatsen mislukt");
+    } finally {
+      setCommentSubmitting(false);
+    }
+  }
+
   async function folderAction(action: string, pathOrName: string, newPath?: string) {
     setError(null);
     try {
@@ -1208,8 +1228,10 @@ export function useMailAppState(
     activeTicket,
     ticketsLoading,
     ticketSubmitting,
+    commentSubmitting,
     openTickets,
     selectTicket,
     createTicket,
+    addTicketComment,
   };
 }

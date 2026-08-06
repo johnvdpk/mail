@@ -200,3 +200,13 @@ CREATE TABLE IF NOT EXISTS ticket_runs (
 
 CREATE INDEX IF NOT EXISTS idx_ticket_runs_ticket ON ticket_runs(ticket_id);
 
+-- Comments on a ticket, so the reporter can clarify the request or discuss a run
+CREATE TABLE IF NOT EXISTS ticket_comments (
+  id          SERIAL PRIMARY KEY,
+  ticket_id   INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  body        TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket ON ticket_comments(ticket_id);
+

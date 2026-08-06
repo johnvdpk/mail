@@ -10,8 +10,10 @@ type Props = {
   active: TicketDetail | null;
   loading: boolean;
   submitting: boolean;
+  commentSubmitting: boolean;
   onSelect: (id: number) => void;
   onCreate: (title: string, description: string) => void;
+  onComment: (id: number, body: string) => void;
   onClose: () => void;
 };
 
@@ -33,13 +35,16 @@ export function TicketsPanel({
   active,
   loading,
   submitting,
+  commentSubmitting,
   onSelect,
   onCreate,
+  onComment,
   onClose,
 }: Props) {
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [comment, setComment] = useState("");
 
   return (
     <div className={styles.wrap}>
@@ -168,6 +173,49 @@ export function TicketsPanel({
                   ))}
                 </ul>
               )}
+
+              <h4 className={styles.runsTitle}>Reacties ({active.comments.length})</h4>
+              {active.comments.length === 0 ? (
+                <p className={styles.empty}>Nog geen reacties op dit ticket.</p>
+              ) : (
+                <ul className={styles.runs}>
+                  {active.comments.map((item) => (
+                    <li key={item.id} className={styles.run}>
+                      <div className={styles.runHead}>
+                        <span className={styles.runMeta}>
+                          {new Date(item.createdAt).toLocaleString("nl-NL")}
+                        </span>
+                      </div>
+                      <p className={styles.runSummary}>{item.body}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <form
+                className={styles.newForm}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!comment.trim()) return;
+                  onComment(active.id, comment.trim());
+                  setComment("");
+                }}
+              >
+                <div className={styles.inputWithMic}>
+                  <textarea
+                    value={comment}
+                    placeholder="Reageer op dit ticket…"
+                    rows={3}
+                    onChange={(event) => setComment(event.target.value)}
+                  />
+                  <MicButton onText={(text) => setComment((prev) => appendText(prev, text))} />
+                </div>
+                <div className={styles.newFormActions}>
+                  <button type="submit" disabled={commentSubmitting || !comment.trim()}>
+                    {commentSubmitting ? "Plaatsen…" : "Reactie plaatsen"}
+                  </button>
+                </div>
+              </form>
             </>
           )}
         </section>
