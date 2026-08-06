@@ -66,6 +66,32 @@ a.saveBtn {
   font-size: 0.875rem;
 }
 
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.tab,
+.tabActive {
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tabActive {
+  border-color: var(--cta);
+  background: var(--cta);
+  color: var(--cta-text);
+  font-weight: 600;
+}
+
 .section {
   padding: 1.25rem;
   background: var(--surface);
@@ -120,6 +146,7 @@ a.saveBtn {
 }
 
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   padding: 0.65rem 0.8rem;
