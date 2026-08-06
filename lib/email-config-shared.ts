@@ -14,6 +14,12 @@ export type ContactReplySet = {
   replies: QuickReplyTemplate[];
 };
 
+/** Extra e-mailadres dat (nog) niet gekoppeld is aan een eigen IMAP/SMTP-account */
+export type EmailAccount = {
+  email: string;
+  label?: string;
+};
+
 export type EmailConfig = {
   updatedAt?: string;
   toneOfVoice: {
@@ -25,6 +31,17 @@ export type EmailConfig = {
     intro: string;
     background: string;
   };
+  /** Standaard opmaak voor uitgaande mail */
+  formatting: {
+    fontFamily: string;
+    fontSize: number;
+  };
+  /** Handtekening die onder uitgaande mail wordt geplakt */
+  signature: {
+    text: string;
+  };
+  /** Extra e-mailadressen naast het hoofdaccount */
+  accounts: EmailAccount[];
   /** Quick-reply buttons (AI drafts from these templates) */
   replies: QuickReplyTemplate[];
   /** Optional custom reply buttons for specific contacts */
@@ -48,6 +65,20 @@ export type WritingProfile = {
   suggestionStatus: "none" | "pending" | "accepted" | "rejected";
 };
 
+export const DEFAULT_SIGNATURE_TEXT = `John van der Pouw Kraan
++31 6 38306764
+john@aiadapt.nl
+https://www.aiadapt.nl | https://www.johnpk.nl`;
+
+export const FONT_FAMILY_OPTIONS = [
+  "Arial, sans-serif",
+  "Helvetica, Arial, sans-serif",
+  "Georgia, serif",
+  "Times New Roman, Times, serif",
+  "Verdana, sans-serif",
+  "Courier New, monospace",
+];
+
 export const DEFAULT_EMAIL_CONFIG: EmailConfig = {
   toneOfVoice: {
     rules: `Warm, kort en menselijk. Informeel maar professioneel.
@@ -66,6 +97,14 @@ Houd het kort: liever te kort dan te lang.`,
     intro: "Ik ben John van der Pouw Kraan. Software developer, eigenaar van aiadapt.nl.",
     background: "Ik mail vanuit john@aiadapt.nl. Kort en duidelijk, geen corporate toon.",
   },
+  formatting: {
+    fontFamily: "Arial, sans-serif",
+    fontSize: 15,
+  },
+  signature: {
+    text: DEFAULT_SIGNATURE_TEXT,
+  },
+  accounts: [],
   replies: [
     {
       id: "afronden",

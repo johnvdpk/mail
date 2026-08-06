@@ -1,12 +1,14 @@
 import { query, queryOne } from "./db";
 import {
   DEFAULT_EMAIL_CONFIG,
+  type EmailAccount,
   type EmailConfig,
   type QuickReplyTemplate,
 } from "./email-config-shared";
 
 export type {
   ContactReplySet,
+  EmailAccount,
   EmailConfig,
   QuickReplyTemplate,
   ReplyIntent,
@@ -15,6 +17,8 @@ export type {
 
 export {
   DEFAULT_EMAIL_CONFIG,
+  DEFAULT_SIGNATURE_TEXT,
+  FONT_FAMILY_OPTIONS,
   buildReplyPromptContext,
   buildTonePromptContext,
   repliesForContact,
@@ -54,9 +58,17 @@ function mergeWithDefaults(partial: Partial<EmailConfig>): EmailConfig {
     updatedAt: partial.updatedAt,
     toneOfVoice: { ...defaults.toneOfVoice, ...partial.toneOfVoice },
     aboutMe: { ...defaults.aboutMe, ...partial.aboutMe },
+    formatting: { ...defaults.formatting, ...partial.formatting },
+    signature: { ...defaults.signature, ...partial.signature },
+    accounts: mergeAccounts(partial.accounts),
     replies: mergeReplies(partial.replies, defaults.replies),
     contactReplies: Array.isArray(partial.contactReplies) ? partial.contactReplies : [],
   };
+}
+
+function mergeAccounts(incoming: EmailAccount[] | undefined): EmailAccount[] {
+  if (!Array.isArray(incoming)) return [];
+  return incoming.filter((a) => typeof a?.email === "string" && a.email.trim());
 }
 
 function mergeReplies(

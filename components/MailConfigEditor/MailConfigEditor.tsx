@@ -3,14 +3,26 @@
 import { useEffect, useState } from "react";
 import type {
   ContactReplySet,
+  EmailAccount,
   EmailConfig,
   QuickReplyTemplate,
   WritingProfile,
 } from "@/lib/email-config-shared";
+import { FONT_FAMILY_OPTIONS } from "@/lib/email-config-shared";
 import styles from "./MailConfigEditor.module.css";
+
+type Tab = "algemeen" | "opmaak" | "handtekening" | "accounts";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "algemeen", label: "Algemeen" },
+  { id: "opmaak", label: "Opmaak" },
+  { id: "handtekening", label: "Handtekening" },
+  { id: "accounts", label: "Accounts" },
+];
 
 type Props = {
   initialConfig: EmailConfig;
+  account?: string;
   googleConnected?: boolean;
   googleConfigured?: boolean;
   googleEmail?: string;
@@ -23,6 +35,7 @@ type Props = {
 
 export function MailConfigEditor({
   initialConfig,
+  account,
   googleConnected = false,
   googleConfigured = false,
   googleEmail,
@@ -39,6 +52,9 @@ export function MailConfigEditor({
   const [profile, setProfile] = useState<WritingProfile | null>(null);
   const [toneBusy, setToneBusy] = useState(false);
   const [tweakText, setTweakText] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("algemeen");
+  const [newAccountEmail, setNewAccountEmail] = useState("");
+  const [newAccountLabel, setNewAccountLabel] = useState("");
 
   useEffect(() => {
     setGConnected(googleConnected);
@@ -199,6 +215,41 @@ export function MailConfigEditor({
     }));
   }
 
+  function updateFormatting<K extends keyof EmailConfig["formatting"]>(
+    key: K,
+    value: EmailConfig["formatting"][K]
+  ) {
+    setConfig((c) => ({
+      ...c,
+      formatting: { ...c.formatting, [key]: value },
+    }));
+  }
+
+  function updateSignature(text: string) {
+    setConfig((c) => ({
+      ...c,
+      signature: { ...c.signature, text },
+    }));
+  }
+
+  function addAccount() {
+    const email = newAccountEmail.trim();
+    if (!email) return;
+    setConfig((c) => ({
+      ...c,
+      accounts: [...c.accounts, { email, label: newAccountLabel.trim() || undefined }],
+    }));
+    setNewAccountEmail("");
+    setNewAccountLabel("");
+  }
+
+  function removeAccount(index: number) {
+    setConfig((c) => ({
+      ...c,
+      accounts: c.accounts.filter((_, i) => i !== index),
+    }));
+  }
+
   function updateReply(index: number, patch: Partial<QuickReplyTemplate>) {
     setConfig((c) => ({
       ...c,
@@ -307,6 +358,21 @@ export function MailConfigEditor({
       {message && <p className={styles.ok}>{message}</p>}
       {error && <p className={styles.error}>{error}</p>}
 
+      <div className={styles.tabs}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={activeTab === tab.id ? styles.tabActive : styles.tab}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "algemeen" && (
+      <>
       <section className={styles.section}>
         <h3>Google Agenda</h3>
         <p className={styles.subtitle}>
@@ -553,6 +619,115 @@ export function MailConfigEditor({
           </div>
         ))}
       </section>
+      </>
+      )}
+
+      {activeTab === "opmaak" && (
+        <section className={styles.section}>
+          <h3>Opmaak</h3>
+          <p className={styles.subtitle}>
+            Standaard lettertype en tekstgrootte voor nieuwe mails en drafts.
+          </p>
+          <label className={styles.field}>
+            <span>Lettertype</span>
+            <select
+              value={config.formatting.fontFamily}
+              onChange={(e) => updateFormatting("fontFamily", e.target.value)}
+            >
+              {FONT_FAMILY_OPTIONS.map((font) => (
+                <option key={font} value={font} style={{ fontFamily: font }}>
+                  {font.split(",")[0]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={styles.field}>
+            <span>Tekstgrootte (px)</span>
+            <input
+              type="number"
+              min={10}
+              max={24}
+              value={config.formatting.fontSize}
+              onChange={(e) => updateFormatting("fontSize", Number(e.target.value) || 15)}
+            />
+          </label>
+          <p
+            className={styles.metaLine}
+            style={{
+              fontFamily: config.formatting.fontFamily,
+              fontSize: `${config.formatting.fontSize}px`,
+            }}
+          >
+            Voorbeeld: zo ziet de tekst van je mail eruit.
+          </p>
+        </section>
+      )}
+
+      {activeTab === "handtekening" && (
+        <section className={styles.section}>
+          <h3>Handtekening</h3>
+          <p className={styles.subtitle}>
+            Wordt automatisch onder nieuwe mails en reacties geplakt.
+          </p>
+          <label className={styles.field}>
+            <span>Tekst</span>
+            <textarea
+              rows={6}
+              value={config.signature.text}
+              onChange={(e) => updateSignature(e.target.value)}
+            />
+          </label>
+        </section>
+      )}
+
+      {activeTab === "accounts" && (
+        <section className={styles.section}>
+          <h3>Huidig account</h3>
+          <p className={styles.metaLine}>{account ?? "onbekend"}</p>
+          <p className={styles.subtitle}>
+            Dit is het e-mailadres dat nu is gekoppeld voor versturen en ontvangen.
+          </p>
+        </section>
+      )}
+
+      {activeTab === "accounts" && (
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <h3>Extra e-mailadressen</h3>
+          </div>
+          <p className={styles.subtitle}>
+            Voeg extra adressen toe die je later aan dit mailprogramma wilt koppelen.
+          </p>
+          {config.accounts.map((acc: EmailAccount, index) => (
+            <div key={`${acc.email}-${index}`} className={styles.googleRow}>
+              <p className={styles.metaLine}>
+                {acc.email}
+                {acc.label ? ` (${acc.label})` : ""}
+              </p>
+              <button type="button" onClick={() => removeAccount(index)}>
+                Verwijderen
+              </button>
+            </div>
+          ))}
+          <div className={styles.googleRow}>
+            <input
+              type="email"
+              placeholder="naam@bedrijf.nl"
+              value={newAccountEmail}
+              onChange={(e) => setNewAccountEmail(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Label (optioneel)"
+              value={newAccountLabel}
+              onChange={(e) => setNewAccountLabel(e.target.value)}
+            />
+            <button type="button" onClick={addAccount}>
+              + Toevoegen
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

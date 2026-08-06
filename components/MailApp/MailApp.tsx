@@ -158,6 +158,7 @@ export function MailApp({
           <div className={styles.settings}>
             <MailConfigEditor
               initialConfig={emailConfig}
+              account={account}
               googleConnected={state.googleConnected}
               googleConfigured={state.googleConfigured}
               googleEmail={undefined}

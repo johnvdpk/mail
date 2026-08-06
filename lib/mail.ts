@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
-import { buildMailHtml, ensureSignature } from "./email-template";
+import { readEmailConfig } from "./email-config";
+import { buildMailHtml, ensureSignature, type MailFormatting } from "./email-template";
 import { parseEmailList } from "./email-validation";
 import { env, loadEnvFromFile } from "./env";
 import type { OutgoingAttachment } from "./outgoing-attachments";
@@ -76,7 +77,7 @@ export type SentMail = {
   raw: Buffer;
 };
 
-function buildMessage(input: OutgoingMail): Mail.Options {
+function buildMessage(input: OutgoingMail, formatting: MailFormatting): Mail.Options {
   const fromName = env("SMTP_FROM_NAME") ?? "John van der Pouw Kraan";
   const from = env("SMTP_FROM")!;
 
@@ -87,8 +88,8 @@ function buildMessage(input: OutgoingMail): Mail.Options {
     ...(input.bcc ? { bcc: input.bcc } : {}),
     replyTo: from,
     subject: input.subject,
-    text: ensureSignature(input.text),
-    html: buildMailHtml(input.text),
+    text: ensureSignature(input.text, formatting),
+    html: buildMailHtml(input.text, formatting),
     ...(input.inReplyTo ? { inReplyTo: formatMessageId(input.inReplyTo) } : {}),
     ...(input.references?.length
       ? { references: input.references.map(formatMessageId).join(" ") }
@@ -120,7 +121,12 @@ async function composeRaw(message: Mail.Options): Promise<{ raw: Buffer; message
 
 export async function sendMail(input: OutgoingMail): Promise<SentMail> {
   const from = env("SMTP_FROM")!;
-  const message = buildMessage(input);
+  const config = await readEmailConfig();
+  const message = buildMessage(input, {
+    fontFamily: config.formatting.fontFamily,
+    fontSize: config.formatting.fontSize,
+    signatureText: config.signature.text,
+  });
   const { raw, messageId } = await composeRaw(message);
 
   await getTransporter().sendMail({

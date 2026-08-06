@@ -1,14 +1,16 @@
+import { DEFAULT_SIGNATURE_TEXT } from "./email-config-shared";
+
 export type MailContent = {
   subject: string;
   text: string;
   html: string;
 };
 
-export const SIGNATURE_TEXT = `--
-John van der Pouw Kraan
-+31 6 38306764
-john@aiadapt.nl
-https://www.aiadapt.nl | https://www.johnpk.nl`;
+export type MailFormatting = {
+  fontFamily?: string;
+  fontSize?: number;
+  signatureText?: string;
+};
 
 const SIGNATURE_HTML = `
 <table cellpadding="0" cellspacing="0" border="0" width="500" style="margin-top:24px;font-family:Arial,sans-serif;color:#444;line-height:1.4;max-width:500px;">
@@ -46,13 +48,14 @@ export function stripSignatureFromText(text: string): string {
 }
 
 /** Append personal signature. */
-export function ensureSignature(text: string): string {
+export function ensureSignature(text: string, formatting?: MailFormatting): string {
   const body = stripSignatureFromText(text);
-  return `${body}\n\n${SIGNATURE_TEXT}`;
+  const signatureText = formatting?.signatureText ?? DEFAULT_SIGNATURE_TEXT;
+  return `${body}\n\n--\n${signatureText}`;
 }
 
 /** HTML body + personal signature. */
-export function buildMailHtml(bodyText: string): string {
+export function buildMailHtml(bodyText: string, formatting?: MailFormatting): string {
   const body = stripSignatureFromText(bodyText);
   const paragraphs = body.split(/\n\n+/).filter(Boolean);
   const bodyHtml = paragraphs
@@ -62,14 +65,37 @@ export function buildMailHtml(bodyText: string): string {
     })
     .join("\n\n");
 
+  const fontFamily = formatting?.fontFamily ?? "Arial, sans-serif";
+  const fontSize = formatting?.fontSize ?? 15;
+  const signatureText = formatting?.signatureText ?? DEFAULT_SIGNATURE_TEXT;
+  const signatureHtml =
+    signatureText === DEFAULT_SIGNATURE_TEXT
+      ? SIGNATURE_HTML
+      : buildPlainSignatureHtml(signatureText, fontFamily);
+
   return `<!DOCTYPE html>
 <html lang="nl">
-<body style="font-family: Arial, sans-serif; color: #222; line-height: 1.6; font-size: 15px;">
+<body style="font-family: ${fontFamily}; color: #222; line-height: 1.6; font-size: ${fontSize}px;">
 ${bodyHtml}
 
-${SIGNATURE_HTML}
+${signatureHtml}
 </body>
 </html>`;
+}
+
+function buildPlainSignatureHtml(signatureText: string, fontFamily: string): string {
+  const lines = signatureText
+    .split("\n")
+    .map((l) => escapeHtmlText(l))
+    .filter(Boolean);
+  return `
+<table cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;font-family:${fontFamily};color:#444;line-height:1.4;">
+  <tr>
+    <td style="border-left:2px solid #e0e0e0;padding-left:18px;font-size:14px;">
+      ${lines.join("<br>\n      ")}
+    </td>
+  </tr>
+</table>`;
 }
 
 /** @deprecated Use buildMailHtml */
