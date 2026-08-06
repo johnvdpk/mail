@@ -23,6 +23,7 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
   const [subject, setSubject] = useState("");
   const [text, setText] = useState("");
   const [polishing, setPolishing] = useState(false);
+  const [suggestingSubject, setSuggestingSubject] = useState(false);
   const [sending, setSending] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
@@ -48,6 +49,25 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
       setError(err instanceof Error ? err.message : "Correctie mislukt");
     } finally {
       setPolishing(false);
+    }
+  }
+
+  async function suggestSubject() {
+    setSuggestingSubject(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/ai/subject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Onderwerp suggereren mislukt");
+      setSubject(data.subject ?? subject);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Onderwerp suggereren mislukt");
+    } finally {
+      setSuggestingSubject(false);
     }
   }
 
@@ -112,11 +132,22 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
 
         <label className={styles.field}>
           <span>Onderwerp</span>
-          <input
-            type="text"
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-          />
+          <div className={styles.subjectRow}>
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+            />
+            <button
+              type="button"
+              className={styles.subjectSuggest}
+              disabled={!aiAvailable || suggestingSubject || !text.trim()}
+              title="Laat AI een onderwerp voorstellen op basis van je bericht"
+              onClick={() => void suggestSubject()}
+            >
+              {suggestingSubject ? "…" : "AI-suggestie"}
+            </button>
+          </div>
         </label>
 
         <label className={`${styles.field} ${styles.bodyField}`}>
