@@ -79,13 +79,25 @@ SQL
   git branch -D "$branch" >/dev/null 2>&1 || true
   git checkout -b "$branch" >/dev/null 2>&1
 
+  # Laat een licht LLM (via OpenRouter) de ruwe ticket-omschrijving eerst
+  # opschonen tot een beknopte, heldere opdracht, zodat Claude Code minder
+  # tokens kwijt is aan het interpreteren van een rommelige omschrijving.
+  # Bij ontbrekende configuratie of een fout valt dit terug op de
+  # originele omschrijving.
+  refined_description=$(jq -n --arg title "$title" --arg description "$description" \
+    '{title: $title, description: $description}' \
+    | "$REPO/node_modules/.bin/tsx" "$REPO/scripts/refine-ticket-prompt.ts" 2>>"$log_file")
+  if [ -z "$(echo "$refined_description" | tr -d '[:space:]')" ]; then
+    refined_description="$description"
+  fi
+
   prompt="Je werkt in de git-repo van de 'mail' webapp (Next.js/TypeScript) op ${REPO}.
 Een gebruiker heeft dit ticket aangemaakt in de app:
 
 Titel: ${title}
 
 Omschrijving:
-${description}
+${refined_description}
 
 Maak alleen de codewijzigingen die nodig zijn om dit ticket op te lossen.
 Commit je wijziging aan het einde op de huidige branch (${branch}). Gebruik
