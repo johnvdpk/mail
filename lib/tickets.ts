@@ -25,7 +25,14 @@ export type TicketRun = {
   diffStat: string | null;
 };
 
-export type TicketDetail = TicketSummary & { runs: TicketRun[] };
+export type TicketComment = {
+  id: number;
+  ticketId: number;
+  body: string;
+  createdAt: string;
+};
+
+export type TicketDetail = TicketSummary & { runs: TicketRun[]; comments: TicketComment[] };
 
 type TicketRow = {
   id: number;
@@ -47,6 +54,13 @@ type TicketRunRow = {
   summary: string | null;
   agent_log: string | null;
   diff_stat: string | null;
+};
+
+type TicketCommentRow = {
+  id: number;
+  ticket_id: number;
+  body: string;
+  created_at: Date;
 };
 
 function toTicket(row: TicketRow): TicketSummary {
@@ -75,6 +89,15 @@ function toRun(row: TicketRunRow): TicketRun {
   };
 }
 
+function toComment(row: TicketCommentRow): TicketComment {
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    body: row.body,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
 export async function listTickets(): Promise<TicketSummary[]> {
   const { rows } = await query<TicketRow>(
     "SELECT * FROM tickets ORDER BY created_at DESC"
@@ -100,5 +123,23 @@ export async function getTicket(id: number): Promise<TicketDetail | null> {
     [id]
   );
 
-  return { ...toTicket(ticketRow), runs: runRows.map(toRun) };
+  const { rows: commentRows } = await query<TicketCommentRow>(
+    "SELECT * FROM ticket_comments WHERE ticket_id = $1 ORDER BY created_at ASC",
+    [id]
+  );
+
+  return {
+    ...toTicket(ticketRow),
+    runs: runRows.map(toRun),
+    comments: commentRows.map(toComment),
+  };
+}
+
+export async function addTicketComment(ticketId: number, body: string): Promise<TicketComment> {
+  const row = await queryOne<TicketCommentRow>(
+    `INSERT INTO ticket_comments (ticket_id, body) VALUES ($1, $2) RETURNING *`,
+    [ticketId, body]
+  );
+  if (!row) throw new Error("Reactie plaatsen mislukt");
+  return toComment(row);
 }

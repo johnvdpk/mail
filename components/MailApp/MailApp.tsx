@@ -190,8 +190,10 @@ export function MailApp({
               active={state.activeTicket}
               loading={state.ticketsLoading}
               submitting={state.ticketSubmitting}
+              commentSubmitting={state.commentSubmitting}
               onSelect={(id) => void state.selectTicket(id)}
               onCreate={(title, description) => void state.createTicket(title, description)}
+              onComment={(id, body) => void state.addTicketComment(id, body)}
               onClose={() => state.setShowTickets(false)}
             />
           </div>
