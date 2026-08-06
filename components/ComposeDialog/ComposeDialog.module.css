@@ -79,6 +79,22 @@
   flex-shrink: 0;
 }
 
+.subjectRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.subjectRow input {
+  flex: 1;
+  min-width: 0;
+}
+
+.subjectSuggest {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
 .notes {
   margin: 0;
   font-size: 0.8rem;

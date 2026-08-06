@@ -236,6 +236,35 @@ export async function* streamPolishDraft(
   yield { body: result.body, final: result };
 }
 
+const SUBJECT_SYSTEM = `Je bedenkt een korte, duidelijke onderwerpregel voor een nieuwe e-mail van John, op basis van de conceptbody.
+Geen aanhalingstekens, geen puntkomma's, geen "Re:"/"Fwd:" prefixes. Maximaal circa 8 woorden.
+Schrijf in dezelfde taal als de conceptbody.
+
+Antwoord uitsluitend als JSON-object met exact deze key:
+- subject (string)`;
+
+/**
+ * Suggest a short subject line for a new email based on its draft body.
+ *
+ * @param draft Draft email body to base the subject on
+ * @returns Suggested subject line
+ * @throws Error if OpenRouter API fails
+ */
+export async function suggestSubject(draft: string): Promise<string> {
+  const raw = await chatCompletion(
+    [
+      { role: "system", content: SUBJECT_SYSTEM },
+      { role: "user", content: `=== CONCEPT ===\n${draft}\n\nBedenk een onderwerpregel.` },
+    ],
+    { jsonMode: true, temperature: 0.4 }
+  );
+
+  const parsed = parseJsonObject(raw);
+  const subject = typeof parsed?.subject === "string" ? parsed.subject.trim() : "";
+  if (!subject) throw new Error("Geen onderwerp gevonden");
+  return subject.replace(/^["']|["']$/g, "");
+}
+
 const TIPS_SYSTEM = `Je analyseert een e-mailconversatie voor John.
 Geef een korte samenvatting, praktische tips en concrete talking points.
 Let op openstaande vragen, deadlines en beloftes die John of de ander heeft gedaan.
