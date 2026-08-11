@@ -210,3 +210,14 @@ CREATE TABLE IF NOT EXISTS ticket_comments (
 
 CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket ON ticket_comments(ticket_id);
 
+-- Personal notes, independent of mail/tickets
+CREATE TABLE IF NOT EXISTS notes (
+  id          SERIAL PRIMARY KEY,
+  title       TEXT NOT NULL,
+  body        TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
+

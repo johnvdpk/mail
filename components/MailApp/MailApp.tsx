@@ -17,6 +17,7 @@ import { MailSearch } from "@/components/MailSearch/MailSearch";
 import { TasksLibrary } from "@/components/TasksLibrary/TasksLibrary";
 import { TasksPanel } from "@/components/TasksPanel/TasksPanel";
 import { TicketsPanel } from "@/components/TicketsPanel/TicketsPanel";
+import { NotesPanel } from "@/components/NotesPanel/NotesPanel";
 import { ThreadList } from "@/components/ThreadList/ThreadList";
 import { ThreadView } from "@/components/ThreadView/ThreadView";
 import { useMailAppState } from "./useMailAppState";
@@ -74,6 +75,7 @@ export function MailApp({
       state.showSettings ||
       state.showTasksLibrary ||
       state.showTickets ||
+      state.showNotes ||
       state.composeOpen ||
       state.forwardOpen ||
       state.previewOpen ||
@@ -107,6 +109,7 @@ export function MailApp({
     state.showSettings,
     state.showTasksLibrary,
     state.showTickets,
+    state.showNotes,
     state.composeOpen,
     state.forwardOpen,
     state.previewOpen,
@@ -133,15 +136,18 @@ export function MailApp({
           settingsActive={state.showSettings}
           tasksActive={state.showTasksLibrary}
           ticketsActive={state.showTickets}
+          notesActive={state.showNotes}
           onSelectFolder={(path) => void state.selectFolder(path)}
           onCompose={() => state.setComposeOpen(true)}
           onOpenSettings={() => {
             state.setShowTasksLibrary(false);
             state.setShowTickets(false);
+            state.setShowNotes(false);
             state.setShowSettings(true);
           }}
           onOpenTasks={() => void state.openTasksLibrary()}
           onOpenTickets={() => void state.openTickets()}
+          onOpenNotes={() => void state.openNotes()}
           onCreateFolder={(name) => void state.folderAction("create", name)}
           onRenameFolder={(path, newName) => void state.folderAction("rename", path, newName)}
           onDeleteFolder={(path) => void state.folderAction("delete", path)}
@@ -195,6 +201,22 @@ export function MailApp({
               onCreate={(title, description) => void state.createTicket(title, description)}
               onComment={(id, body) => void state.addTicketComment(id, body)}
               onClose={() => state.setShowTickets(false)}
+            />
+          </div>
+        </ErrorBoundary>
+      ) : state.showNotes ? (
+        <ErrorBoundary title="Notities konden niet worden geladen">
+          <div className={styles.settings}>
+            <NotesPanel
+              items={state.notes}
+              active={state.activeNote}
+              loading={state.notesLoading}
+              submitting={state.noteSubmitting}
+              onSelect={(id) => void state.selectNote(id)}
+              onCreate={(title, body) => void state.createNote(title, body)}
+              onUpdate={(id, title, body) => void state.updateNote(id, title, body)}
+              onDelete={(id) => void state.deleteNote(id)}
+              onClose={() => state.setShowNotes(false)}
             />
           </div>
         </ErrorBoundary>
