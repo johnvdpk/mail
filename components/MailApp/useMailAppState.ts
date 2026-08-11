@@ -11,6 +11,7 @@ import type { SortConfirmItem } from "@/components/SortReview/SortReview";
 import type { ContactStatus, ContactView, SearchJobSummary, SearchJobView } from "@/lib/search-types";
 import type { EmbeddingBackfillStatus } from "@/lib/embeddings";
 import type { TicketDetail, TicketSummary } from "@/lib/tickets";
+import type { Note } from "@/lib/notes";
 import { applyUnreadIndicator, notifyNewMail } from "./unread-indicator";
 
 const POLL_INTERVAL_MS = 60_000;
@@ -89,6 +90,11 @@ export function useMailAppState(
   const [ticketsLoading, setTicketsLoading] = useState(false);
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [activeNote, setActiveNote] = useState<Note | null>(null);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteSubmitting, setNoteSubmitting] = useState(false);
 
   const syncingRef = useRef(false);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -358,6 +364,7 @@ export function useMailAppState(
     setShowSettings(false);
     setShowTasksLibrary(false);
     setShowTickets(false);
+    setShowNotes(false);
     setFolder(path);
     setActiveThreadId(null);
     setDetail(null);
@@ -770,6 +777,103 @@ export function useMailAppState(
       setError(err instanceof Error ? err.message : "Reactie plaatsen mislukt");
     } finally {
       setCommentSubmitting(false);
+    }
+  }
+
+  async function loadNotes(selectId?: number) {
+    setNotesLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/notes");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Notities ophalen mislukt");
+      const items = (data.notes ?? []) as Note[];
+      setNotes(items);
+
+      const targetId = selectId ?? activeNote?.id ?? items[0]?.id;
+      const target = targetId ? items.find((n) => n.id === targetId) ?? null : null;
+      setActiveNote(target);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Notities ophalen mislukt");
+    } finally {
+      setNotesLoading(false);
+    }
+  }
+
+  async function openNotes() {
+    setShowSettings(false);
+    setShowTasksLibrary(false);
+    setShowTickets(false);
+    setShowNotes(true);
+    await loadNotes();
+  }
+
+  async function selectNote(id: number) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/notes/${id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Notitie ophalen mislukt");
+      setActiveNote(data.note as Note);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Notitie ophalen mislukt");
+    }
+  }
+
+  async function createNote(title: string, body: string) {
+    setNoteSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Notitie aanmaken mislukt");
+      setNotice("Notitie aangemaakt");
+      await loadNotes(data.note?.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Notitie aanmaken mislukt");
+    } finally {
+      setNoteSubmitting(false);
+    }
+  }
+
+  async function updateNote(id: number, title: string, body: string) {
+    setNoteSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/notes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Notitie bijwerken mislukt");
+      setNotice("Notitie opgeslagen");
+      await loadNotes(id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Notitie bijwerken mislukt");
+    } finally {
+      setNoteSubmitting(false);
+    }
+  }
+
+  async function deleteNote(id: number) {
+    setNoteSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Notitie verwijderen mislukt");
+      setNotice("Notitie verwijderd");
+      if (activeNote?.id === id) setActiveNote(null);
+      await loadNotes();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Notitie verwijderen mislukt");
+    } finally {
+      setNoteSubmitting(false);
     }
   }
 
@@ -1233,5 +1337,16 @@ export function useMailAppState(
     selectTicket,
     createTicket,
     addTicketComment,
+    showNotes,
+    setShowNotes,
+    notes,
+    activeNote,
+    notesLoading,
+    noteSubmitting,
+    openNotes,
+    selectNote,
+    createNote,
+    updateNote,
+    deleteNote,
   };
 }
