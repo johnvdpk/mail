@@ -4,11 +4,17 @@ import { readEmailConfig } from "./email-config";
 import { buildMailHtml, ensureSignature, type MailFormatting } from "./email-template";
 import { parseEmailList } from "./email-validation";
 import { env, loadEnvFromFile } from "./env";
+import { activeAccountEnv, currentMailAccount } from "./mail-accounts";
 import type { OutgoingAttachment } from "./outgoing-attachments";
 
 export function isSmtpConfigured(): boolean {
   loadEnvFromFile();
-  return Boolean(env("SMTP_HOST") && env("SMTP_USER") && env("SMTP_PASS") && env("SMTP_FROM"));
+  return Boolean(
+    activeAccountEnv("SMTP_HOST") &&
+      activeAccountEnv("SMTP_USER") &&
+      activeAccountEnv("SMTP_PASS") &&
+      activeAccountEnv("SMTP_FROM")
+  );
 }
 
 function getTransporter() {
@@ -16,16 +22,16 @@ function getTransporter() {
     throw new Error("SMTP niet geconfigureerd — vul .env.local in (projectroot)");
   }
 
-  const port = Number(env("SMTP_PORT") ?? 465);
-  const secure = env("SMTP_SECURE") === "true" || port === 465;
+  const port = Number(activeAccountEnv("SMTP_PORT") ?? 465);
+  const secure = activeAccountEnv("SMTP_SECURE") === "true" || port === 465;
 
   return nodemailer.createTransport({
-    host: env("SMTP_HOST"),
+    host: activeAccountEnv("SMTP_HOST"),
     port,
     secure,
     auth: {
-      user: env("SMTP_USER"),
-      pass: env("SMTP_PASS"),
+      user: activeAccountEnv("SMTP_USER"),
+      pass: activeAccountEnv("SMTP_PASS"),
     },
     authMethod: "LOGIN",
     tls: {
@@ -78,8 +84,8 @@ export type SentMail = {
 };
 
 function buildMessage(input: OutgoingMail, formatting: MailFormatting): Mail.Options {
-  const fromName = env("SMTP_FROM_NAME") ?? "John van der Pouw Kraan";
-  const from = env("SMTP_FROM")!;
+  const fromName = activeAccountEnv("SMTP_FROM_NAME") ?? env("SMTP_FROM_NAME") ?? "John van der Pouw Kraan";
+  const from = activeAccountEnv("SMTP_FROM") ?? currentMailAccount().email;
 
   return {
     from: `"${fromName}" <${from}>`,
@@ -120,7 +126,7 @@ async function composeRaw(message: Mail.Options): Promise<{ raw: Buffer; message
 }
 
 export async function sendMail(input: OutgoingMail): Promise<SentMail> {
-  const from = env("SMTP_FROM")!;
+  const from = activeAccountEnv("SMTP_FROM") ?? currentMailAccount().email;
   const config = await readEmailConfig();
   const message = buildMessage(input, {
     fontFamily: config.formatting.fontFamily,

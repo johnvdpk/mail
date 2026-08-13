@@ -13,6 +13,14 @@ import styles from "./MailConfigEditor.module.css";
 
 type Tab = "algemeen" | "opmaak" | "handtekening" | "accounts";
 
+type MailAccountStatus = {
+  id: string;
+  email: string;
+  label: string;
+  active: boolean;
+  configured: boolean;
+};
+
 const TABS: { id: Tab; label: string }[] = [
   { id: "algemeen", label: "Algemeen" },
   { id: "opmaak", label: "Opmaak" },
@@ -55,6 +63,8 @@ export function MailConfigEditor({
   const [activeTab, setActiveTab] = useState<Tab>("algemeen");
   const [newAccountEmail, setNewAccountEmail] = useState("");
   const [newAccountLabel, setNewAccountLabel] = useState("");
+  const [mailAccounts, setMailAccounts] = useState<MailAccountStatus[]>([]);
+  const [switchingAccountId, setSwitchingAccountId] = useState<string | null>(null);
 
   useEffect(() => {
     setGConnected(googleConnected);
@@ -65,7 +75,40 @@ export function MailConfigEditor({
   useEffect(() => {
     void refreshGoogle();
     void loadToneProfile();
+    void loadMailAccounts();
   }, []);
+
+  async function loadMailAccounts() {
+    try {
+      const res = await fetch("/api/mail-account");
+      const data = await res.json();
+      if (!res.ok) return;
+      setMailAccounts(data.accounts ?? []);
+    } catch {
+      // ignore
+    }
+  }
+
+  async function switchMailAccount(id: string) {
+    setSwitchingAccountId(id);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/mail-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Wisselen mislukt");
+      setMailAccounts(data.accounts ?? []);
+      setMessage("Actief e-mailadres gewisseld. Herlaad de pagina om de mailbox te synchroniseren.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wisselen mislukt");
+    } finally {
+      setSwitchingAccountId(null);
+    }
+  }
 
   async function refreshGoogle() {
     try {
@@ -682,11 +725,28 @@ export function MailConfigEditor({
 
       {activeTab === "accounts" && (
         <section className={styles.section}>
-          <h3>Huidig account</h3>
-          <p className={styles.metaLine}>{account ?? "onbekend"}</p>
+          <h3>E-mailadres wisselen</h3>
           <p className={styles.subtitle}>
-            Dit is het e-mailadres dat nu is gekoppeld voor versturen en ontvangen.
+            Kies met welk e-mailadres je verstuurt en ontvangt. Huidig actief: {account ?? "onbekend"}.
+            Na het wisselen wordt de mailbox van het gekozen adres gesynchroniseerd.
           </p>
+          {mailAccounts.map((acc) => (
+            <div key={acc.id} className={styles.googleRow}>
+              <p className={styles.metaLine}>
+                {acc.email} ({acc.label}){acc.active ? " — actief" : ""}
+                {!acc.configured ? " — niet geconfigureerd" : ""}
+              </p>
+              {!acc.active && (
+                <button
+                  type="button"
+                  disabled={!acc.configured || switchingAccountId === acc.id}
+                  onClick={() => void switchMailAccount(acc.id)}
+                >
+                  {switchingAccountId === acc.id ? "Bezig…" : "Wissel naar dit account"}
+                </button>
+              )}
+            </div>
+          ))}
         </section>
       )}
 

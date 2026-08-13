@@ -3,6 +3,7 @@ import { readEmailConfig } from "@/lib/email-config";
 import { env } from "@/lib/env";
 import { isImapConfigured } from "@/lib/imap";
 import { isSmtpConfigured } from "@/lib/mail";
+import { activeAccountEnv, currentMailAccount, refreshActiveMailAccount } from "@/lib/mail-accounts";
 import { getFolderView } from "@/lib/mailbox-service";
 import { isOpenRouterConfigured } from "@/lib/openrouter";
 import { MailApp } from "@/components/MailApp/MailApp";
@@ -17,9 +18,16 @@ export default async function HomePage() {
     return <AuthGate />;
   }
 
+  await refreshActiveMailAccount();
   const imapReady = isImapConfigured();
   const emailConfig = await readEmailConfig();
-  const account = env("IMAP_USER") ?? env("SMTP_FROM") ?? env("SMTP_USER") ?? "onbekend";
+  const account =
+    activeAccountEnv("IMAP_USER") ??
+    activeAccountEnv("SMTP_FROM") ??
+    activeAccountEnv("SMTP_USER") ??
+    currentMailAccount().email ??
+    env("SMTP_FROM") ??
+    "onbekend";
 
   const view = imapReady
     ? await getFolderView(null).catch(() => null)
