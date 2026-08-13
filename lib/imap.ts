@@ -1,11 +1,12 @@
 import { ImapFlow } from "imapflow";
-import { env, loadEnvFromFile } from "./env";
+import { loadEnvFromFile } from "./env";
+import { activeAccountEnv, currentMailAccount } from "./mail-accounts";
 import { normalizeEmail } from "./normalize";
 
 export function isImapConfigured(): boolean {
   loadEnvFromFile();
-  const user = env("IMAP_USER") ?? env("SMTP_USER");
-  const pass = env("IMAP_PASS") ?? env("SMTP_PASS");
+  const user = activeAccountEnv("IMAP_USER") ?? activeAccountEnv("SMTP_USER");
+  const pass = activeAccountEnv("IMAP_PASS") ?? activeAccountEnv("SMTP_PASS");
   return Boolean(user && pass);
 }
 
@@ -19,18 +20,18 @@ export type ImapConfig = {
 
 export function getImapConfig(): ImapConfig {
   loadEnvFromFile();
-  const user = env("IMAP_USER") ?? env("SMTP_USER");
-  const pass = env("IMAP_PASS") ?? env("SMTP_PASS");
+  const user = activeAccountEnv("IMAP_USER") ?? activeAccountEnv("SMTP_USER");
+  const pass = activeAccountEnv("IMAP_PASS") ?? activeAccountEnv("SMTP_PASS");
   if (!user || !pass) {
     throw new Error("IMAP niet geconfigureerd — zet IMAP_USER/IMAP_PASS of SMTP_USER/SMTP_PASS");
   }
 
-  const port = Number(env("IMAP_PORT") ?? 993);
-  const secureEnv = env("IMAP_SECURE");
+  const port = Number(activeAccountEnv("IMAP_PORT") ?? 993);
+  const secureEnv = activeAccountEnv("IMAP_SECURE");
   const secure = secureEnv === undefined ? true : secureEnv === "true" || port === 993;
 
   return {
-    host: env("IMAP_HOST") ?? "imap.strato.com",
+    host: activeAccountEnv("IMAP_HOST") ?? "imap.strato.com",
     port,
     secure,
     user,
@@ -41,8 +42,9 @@ export function getImapConfig(): ImapConfig {
 /** Addresses that count as "me" when deciding inbound vs outbound. */
 export function ownAddresses(): Set<string> {
   const set = new Set<string>();
+  set.add(normalizeEmail(currentMailAccount().email));
   for (const key of ["SMTP_FROM", "SMTP_USER", "IMAP_USER"]) {
-    const value = env(key);
+    const value = activeAccountEnv(key);
     if (value) set.add(normalizeEmail(value));
   }
   return set;

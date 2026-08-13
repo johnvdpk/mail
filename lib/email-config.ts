@@ -61,6 +61,10 @@ function mergeWithDefaults(partial: Partial<EmailConfig>): EmailConfig {
     formatting: { ...defaults.formatting, ...partial.formatting },
     signature: { ...defaults.signature, ...partial.signature },
     accounts: mergeAccounts(partial.accounts),
+    activeAccountId:
+      typeof partial.activeAccountId === "string" && partial.activeAccountId.trim()
+        ? partial.activeAccountId
+        : defaults.activeAccountId,
     replies: mergeReplies(partial.replies, defaults.replies),
     contactReplies: Array.isArray(partial.contactReplies) ? partial.contactReplies : [],
   };

@@ -42,6 +42,8 @@ export type EmailConfig = {
   };
   /** Extra e-mailadressen naast het hoofdaccount */
   accounts: EmailAccount[];
+  /** Welk mailaccount nu actief is voor versturen/ontvangen (zie lib/mail-accounts.ts) */
+  activeAccountId: string;
   /** Quick-reply buttons (AI drafts from these templates) */
   replies: QuickReplyTemplate[];
   /** Optional custom reply buttons for specific contacts */
@@ -105,6 +107,7 @@ Houd het kort: liever te kort dan te lang.`,
     text: DEFAULT_SIGNATURE_TEXT,
   },
   accounts: [],
+  activeAccountId: "aiadapt",
   replies: [
     {
       id: "afronden",
