@@ -236,6 +236,58 @@ export async function* streamPolishDraft(
   yield { body: result.body, final: result };
 }
 
+export type SpellingCorrection = {
+  original: string;
+  suggestion: string;
+};
+
+export type SpellcheckResult = {
+  corrections: SpellingCorrection[];
+};
+
+const SPELLCHECK_SYSTEM = `Je bent een spellingcontrole voor e-mailconcepten van John.
+Zoek uitsluitend spel- en typfouten en overduidelijke grammaticale fouten. Bemoei je niet met stijl, toon of woordkeuze.
+Voor elke fout geef je het exacte foutieve fragment zoals het LETTERLIJK in de tekst voorkomt (original, kort: een woord of enkele woorden) en de correctie (suggestion).
+Geef nooit een correctie waarbij original en suggestion identiek zijn. Als er geen fouten zijn, geef een lege array.
+
+Antwoord uitsluitend als JSON-object:
+- corrections (array van objecten met: original (string), suggestion (string))`;
+
+/**
+ * Check a draft email body for spelling/typo mistakes.
+ * Returns a list of exact substrings found in the text with their suggested correction,
+ * so the caller can highlight them inline without rewriting the whole draft.
+ *
+ * @param text Draft email body to check
+ * @returns List of spelling corrections (empty if no mistakes found)
+ * @throws Error if OpenRouter API fails
+ */
+export async function checkSpelling(text: string): Promise<SpellcheckResult> {
+  const raw = await chatCompletion(
+    [
+      { role: "system", content: SPELLCHECK_SYSTEM },
+      { role: "user", content: `=== CONCEPT ===\n${text}\n\nGeef alle spelfouten.` },
+    ],
+    { jsonMode: true, temperature: 0 }
+  );
+
+  const parsed = parseJsonObject(raw);
+  const rawCorrections = Array.isArray(parsed?.corrections) ? parsed.corrections : [];
+  const corrections: SpellingCorrection[] = [];
+
+  for (const item of rawCorrections) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const original = typeof row.original === "string" ? row.original : "";
+    const suggestion = typeof row.suggestion === "string" ? row.suggestion : "";
+    if (!original || !suggestion || original === suggestion) continue;
+    if (!text.includes(original)) continue;
+    corrections.push({ original, suggestion });
+  }
+
+  return { corrections };
+}
+
 const SUBJECT_SYSTEM = `Je bedenkt een korte, duidelijke onderwerpregel voor een nieuwe e-mail van John, op basis van de conceptbody.
 Geen aanhalingstekens, geen puntkomma's, geen "Re:"/"Fwd:" prefixes. Maximaal circa 8 woorden.
 Schrijf in dezelfde taal als de conceptbody.
