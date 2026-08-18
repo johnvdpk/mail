@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { TicketDetail, TicketSummary } from "@/lib/tickets";
 import { MicButton } from "@/components/MicButton/MicButton";
+import { TicketChat } from "./TicketChat";
 import styles from "./TicketsPanel.module.css";
 
 type Props = {
@@ -42,8 +43,6 @@ export function TicketsPanel({
   onClose,
 }: Props) {
   const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [comment, setComment] = useState("");
 
   return (
@@ -64,44 +63,14 @@ export function TicketsPanel({
       <div className={styles.grid}>
         <section className={styles.listPane} aria-label="Tickets">
           {creating ? (
-            <form
-              className={styles.newForm}
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!title.trim() || !description.trim()) return;
-                onCreate(title.trim(), description.trim());
-                setTitle("");
-                setDescription("");
+            <TicketChat
+              submitting={submitting}
+              onCancel={() => setCreating(false)}
+              onCreate={(chatTitle, chatDescription) => {
+                onCreate(chatTitle, chatDescription);
                 setCreating(false);
               }}
-            >
-              <div className={styles.inputWithMic}>
-                <input
-                  value={title}
-                  placeholder="Titel (bijv. 'Mobiel werkt niet goed')"
-                  onChange={(event) => setTitle(event.target.value)}
-                  autoFocus
-                />
-                <MicButton onText={(text) => setTitle((prev) => appendText(prev, text))} />
-              </div>
-              <div className={styles.inputWithMic}>
-                <textarea
-                  value={description}
-                  placeholder="Omschrijving: wat werkt niet, wat moet er gebeuren?"
-                  rows={5}
-                  onChange={(event) => setDescription(event.target.value)}
-                />
-                <MicButton onText={(text) => setDescription((prev) => appendText(prev, text))} />
-              </div>
-              <div className={styles.newFormActions}>
-                <button type="submit" disabled={submitting || !title.trim() || !description.trim()}>
-                  {submitting ? "Aanmaken…" : "Ticket aanmaken"}
-                </button>
-                <button type="button" onClick={() => setCreating(false)}>
-                  Annuleren
-                </button>
-              </div>
-            </form>
+            />
           ) : (
             <button type="button" className={styles.addTicket} onClick={() => setCreating(true)}>
               + Nieuw ticket
