@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AddressInput } from "@/components/AddressInput/AddressInput";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
 import { MicButton } from "@/components/MicButton/MicButton";
+import { SpellcheckBackdrop, SpellcheckSuggestions } from "@/components/Spellcheck/SpellcheckMarks";
+import { useSpellcheck } from "@/components/Spellcheck/useSpellcheck";
+import { consumeAiStream } from "@/lib/ai-stream";
 import { isValidEmailList } from "@/lib/email-validation";
 import { buildMailForm } from "@/lib/mail-form-client";
 import styles from "./ComposeDialog.module.css";
@@ -29,6 +32,8 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const spellcheck = useSpellcheck(text, setText);
 
   const ready = isValidEmailList(to) && subject.trim() && text.trim();
 
@@ -41,10 +46,9 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Correctie mislukt");
-      setText(data.body ?? text);
-      setNotes(data.notes || null);
+      const result = await consumeAiStream(res, (body) => setText(body));
+      setText(result.body);
+      setNotes(result.notes || null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Correctie mislukt");
     } finally {
@@ -153,7 +157,15 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
         <label className={`${styles.field} ${styles.bodyField}`}>
           <span>Bericht</span>
           <div className={styles.textareaWrap}>
-            <textarea value={text} onChange={(event) => setText(event.target.value)} />
+            <SpellcheckBackdrop text={text} corrections={spellcheck.corrections} scrollRef={backdropRef} />
+            <textarea
+              value={text}
+              className={spellcheck.corrections.length ? styles.textareaMarked : undefined}
+              onChange={(event) => setText(event.target.value)}
+              onScroll={(event) => {
+                if (backdropRef.current) backdropRef.current.scrollTop = event.currentTarget.scrollTop;
+              }}
+            />
             <div className={styles.textareaMic}>
               <MicButton
                 disabled={sending || polishing}
@@ -173,9 +185,23 @@ export function ComposeDialog({ aiAvailable, sendAvailable, onClose, onSent }: P
           onError={setAttachmentError}
         />
 
+        {spellcheck.error && <p className={styles.notes}>{spellcheck.error}</p>}
+        <SpellcheckSuggestions
+          corrections={spellcheck.corrections}
+          onAccept={spellcheck.accept}
+          onDismiss={spellcheck.dismiss}
+        />
+
         {notes && <p className={styles.notes}>{notes}</p>}
 
         <div className={styles.actions}>
+          <button
+            type="button"
+            disabled={!aiAvailable || polishing || sending || spellcheck.checking || !text.trim()}
+            onClick={() => void spellcheck.runCheck()}
+          >
+            {spellcheck.checking ? "Controleren…" : "Spellingcontrole"}
+          </button>
           <button
             type="button"
             disabled={!aiAvailable || polishing || sending || !text.trim()}

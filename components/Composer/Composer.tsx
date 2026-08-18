@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { AddressInput } from "@/components/AddressInput/AddressInput";
 import { AttachmentPicker } from "@/components/AttachmentPicker/AttachmentPicker";
 import { MicButton } from "@/components/MicButton/MicButton";
+import { SpellcheckBackdrop, SpellcheckSuggestions } from "@/components/Spellcheck/SpellcheckMarks";
+import { useSpellcheck } from "@/components/Spellcheck/useSpellcheck";
 import type { QuickReplyTemplate } from "@/lib/email-config-shared";
 import styles from "./Composer.module.css";
 
@@ -70,9 +72,11 @@ export function Composer({
   const busy = draftingIntent !== null || polishing || sending;
   const canSend = sendAvailable && value.trim() && !busy && !attachmentError;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const spellcheck = useSpellcheck(value, onChange);
 
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -200,14 +204,22 @@ export function Composer({
       </div>
 
       <div className={styles.textareaWrap}>
+        <SpellcheckBackdrop text={value} corrections={spellcheck.corrections} scrollRef={backdropRef} />
         <textarea
           ref={textareaRef}
           rows={7}
-          className={polishing ? styles.textareaStreaming : undefined}
+          className={
+            [polishing && styles.textareaStreaming, spellcheck.corrections.length && styles.textareaMarked]
+              .filter(Boolean)
+              .join(" ") || undefined
+          }
           value={value}
           placeholder="Schrijf je antwoord, of laat een quick reply het concept maken."
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
+          onScroll={(event) => {
+            if (backdropRef.current) backdropRef.current.scrollTop = event.currentTarget.scrollTop;
+          }}
           aria-busy={polishing}
         />
         <div className={styles.textareaMic}>
@@ -226,10 +238,24 @@ export function Composer({
         onError={onAttachmentError}
       />
 
+      {spellcheck.error && <p className={styles.notes}>{spellcheck.error}</p>}
+      <SpellcheckSuggestions
+        corrections={spellcheck.corrections}
+        onAccept={spellcheck.accept}
+        onDismiss={spellcheck.dismiss}
+      />
+
       {notes && <p className={styles.notes}>{notes}</p>}
 
       <div className={styles.actions}>
         <span className={styles.hint}>Ctrl+Enter verstuurt · Ctrl+B vet · Ctrl+I cursief</span>
+        <button
+          type="button"
+          disabled={!aiAvailable || busy || spellcheck.checking || !value.trim()}
+          onClick={() => void spellcheck.runCheck()}
+        >
+          {spellcheck.checking ? "Controleren…" : "Spellingcontrole"}
+        </button>
         <button
           type="button"
           disabled={!aiAvailable || busy || !value.trim()}

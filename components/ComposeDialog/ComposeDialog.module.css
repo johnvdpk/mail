@@ -44,6 +44,12 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  background: var(--card);
+  border-radius: var(--radius-sm);
+}
+
+.textareaMarked {
+  background: transparent;
 }
 
 .textareaMic {
