@@ -126,8 +126,14 @@ export function MailApp({
         ? "thread"
         : "list";
 
+  const listCollapsed = Boolean(state.activeThreadId);
+
   return (
-    <div className={styles.shell} data-mobile-view={mobileView}>
+    <div
+      className={styles.shell}
+      data-mobile-view={mobileView}
+      data-list-collapsed={listCollapsed ? "true" : "false"}
+    >
       <div className={styles.navCol}>
         <FolderRail
           account={account}
@@ -235,6 +241,7 @@ export function MailApp({
                 sortAvailable={imapReady && aiReady}
                 sorting={state.sortingPreview}
                 searchAvailable={aiReady}
+                collapsed={listCollapsed}
                 onSelect={(id) => void state.openThread(id)}
                 onFilterChange={state.setFilter}
                 onSearchChange={state.setSearch}
