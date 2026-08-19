@@ -11,8 +11,8 @@
 .head {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.85rem;
+  gap: 0.5rem;
+  padding: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -77,9 +77,9 @@
 .item {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
   width: 100%;
-  padding: 0.8rem 0.9rem;
+  padding: 0.6rem 0.7rem;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -166,6 +166,54 @@
 
 .footer {
   border-top: 1px solid var(--border);
+}
+
+.pane[data-collapsed="true"] {
+  align-items: center;
+}
+
+.collapsedList {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.collapsedItem {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.collapsedItem:hover {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+.collapsedItem.itemActive {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.collapsedItem.itemUnread {
+  color: var(--text);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 @media (max-width: 900px) {

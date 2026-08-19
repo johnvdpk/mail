@@ -1,9 +1,18 @@
 .shell {
+  --nav-w: 220px;
+  --list-w: minmax(260px, 300px);
   display: grid;
-  grid-template-columns: 220px minmax(280px, 360px) minmax(0, 1fr) auto;
+  grid-template-columns: var(--nav-w) var(--list-w) minmax(0, 1fr) auto;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+}
+
+/* Collapse the mail list to an icon-only rail once an email is open, giving the reading pane more room. */
+@media (min-width: 901px) {
+  .shell[data-list-collapsed="true"] {
+    --list-w: 64px;
+  }
 }
 
 .navCol,
@@ -34,7 +43,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  padding: 0.75rem 1.25rem 0;
+  padding: 0.5rem 0.85rem 0;
 }
 
 .error,
@@ -77,7 +86,8 @@
 
 @media (max-width: 1100px) {
   .shell {
-    grid-template-columns: 180px minmax(240px, 300px) minmax(0, 1fr) auto;
+    --nav-w: 180px;
+    --list-w: minmax(220px, 260px);
   }
 }
 
