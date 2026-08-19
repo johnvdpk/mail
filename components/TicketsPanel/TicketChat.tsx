@@ -153,7 +153,12 @@ export function TicketChat({ onCreate, submitting, onCancel }: Props) {
         ))}
         {loading && messages[messages.length - 1]?.content === "" && (
           <div className={styles.rowAssistant}>
-            <div className={styles.typingBubble}>…</div>
+            <div className={styles.typingBubble}>
+              AI is typend
+              <span className={styles.typingDot} />
+              <span className={styles.typingDot} />
+              <span className={styles.typingDot} />
+            </div>
           </div>
         )}
         <div ref={threadEndRef} />
