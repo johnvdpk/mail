@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0.15rem;
   padding: 0.6rem;
   border: 1px solid var(--border);
@@ -34,7 +36,44 @@
   border-radius: 0.8rem;
   white-space: pre-wrap;
   line-height: 1.4;
-  font-size: 0.85rem;
+  font-size: 16px;
+}
+
+.typingBubble {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.typingDot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  animation: typingPulse 1s ease-in-out infinite;
+}
+
+.typingDot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typingDot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typingPulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .bubbleUser {
@@ -67,6 +106,7 @@
   min-width: 0;
   resize: vertical;
   font-family: inherit;
+  font-size: 16px;
 }
 
 .composerActions {
