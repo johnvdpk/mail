@@ -3,11 +3,12 @@ import {
   buildReplyPromptContext,
   buildTonePromptContext,
   readEmailConfig,
-} from "./email-config";
+  type EmailConfig,
+} from "../config/email-config";
 import { humanizeMailText } from "./humanize-text";
 import { parseJsonObject } from "./llm-json";
-import { extractPartialJsonStringField } from "./stream-json-body";
-import type { ThreadContext } from "./mailbox-service";
+import { extractPartialJsonStringField } from "../shared/stream-json-body";
+import type { ThreadContext } from "../mail/mailbox-service";
 export type ReplyDraftResult = {
   body: string;
   intent: string;
@@ -23,6 +24,20 @@ export type TipsResult = {
   talkingPoints: string[];
   summary: string;
 };
+
+/** First name used in mail sign-offs, from existing signature / about-me config. */
+function signOffNameFromConfig(config: EmailConfig): string {
+  const signatureLine = config.signature.text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (signatureLine) {
+    const firstName = signatureLine.split(/\s+/)[0];
+    if (firstName) return firstName;
+  }
+  const introMatch = config.aboutMe.intro.match(/(?:Ik ben|I'm|I am)\s+([A-Za-zÀ-ÿ]+)/i);
+  return introMatch?.[1] ?? "";
+}
 
 function formatThread(context: ThreadContext): string {
   const lines: string[] = [];
@@ -97,7 +112,10 @@ Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.
   );
 
   const parsed = parseJsonObject(raw);
-  const body = humanizeMailText(typeof parsed?.body === "string" ? parsed.body : raw);
+  const body = humanizeMailText(
+    typeof parsed?.body === "string" ? parsed.body : raw,
+    signOffNameFromConfig(config)
+  );
 
   if (!body.trim()) throw new Error("Lege AI-draft");
   return { body: body.trim(), intent };
@@ -143,7 +161,10 @@ Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.
   }
 
   const parsed = parseJsonObject(raw);
-  const body = humanizeMailText(typeof parsed?.body === "string" ? parsed.body : raw);
+  const body = humanizeMailText(
+    typeof parsed?.body === "string" ? parsed.body : raw,
+    signOffNameFromConfig(config)
+  );
   if (!body.trim()) throw new Error("Lege AI-draft");
 
   const result = { body: body.trim(), intent };
@@ -192,7 +213,10 @@ export async function polishDraft(
   );
 
   const parsed = parseJsonObject(raw);
-  const body = humanizeMailText(typeof parsed?.body === "string" ? parsed.body : draft);
+  const body = humanizeMailText(
+    typeof parsed?.body === "string" ? parsed.body : draft,
+    signOffNameFromConfig(config)
+  );
   const notes = typeof parsed?.notes === "string" ? parsed.notes.trim() : "";
 
   return { body: body.trim(), notes };
@@ -230,7 +254,10 @@ export async function* streamPolishDraft(
   }
 
   const parsed = parseJsonObject(raw);
-  const body = humanizeMailText(typeof parsed?.body === "string" ? parsed.body : draft);
+  const body = humanizeMailText(
+    typeof parsed?.body === "string" ? parsed.body : draft,
+    signOffNameFromConfig(config)
+  );
   const notes = typeof parsed?.notes === "string" ? parsed.notes.trim() : "";
   const result = { body: body.trim(), notes };
   yield { body: result.body, final: result };

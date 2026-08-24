@@ -6,7 +6,11 @@
 const URL_TOKEN = "\uE000";
 const EMAIL_TOKEN = "\uE001";
 
-export function humanizeMailText(text: string): string {
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function humanizeMailText(text: string, signOffName: string): string {
   if (!text.trim()) return text;
 
   const urls: string[] = [];
@@ -40,15 +44,22 @@ export function humanizeMailText(text: string): string {
     .filter(Boolean)
     .join("\n\n");
 
+  const escapedName = escapeRegExp(signOffName);
   out = out.replace(
-    /\s*(Groeten,\s*\n?\s*John)\s*$/i,
-    "\n\nGroeten,\nJohn"
+    new RegExp(`\\s*(Groeten,\\s*\\n?\\s*${escapedName})\\s*$`, "i"),
+    `\n\nGroeten,\n${signOffName}`
   );
   out = out.replace(
-    /\s*((?:Best regards|Kind regards|Cheers|Regards),?\s*\n?\s*John)\s*$/i,
+    new RegExp(
+      `\\s*((?:Best regards|Kind regards|Cheers|Regards),?\\s*\\n?\\s*${escapedName})\\s*$`,
+      "i"
+    ),
     (_m, closing: string) => {
-      const label = closing.replace(/,?\s*\n?\s*John\s*$/i, "").trim().replace(/,$/, "");
-      return `\n\n${label},\nJohn`;
+      const label = closing
+        .replace(new RegExp(`,?\\s*\\n?\\s*${escapedName}\\s*$`, "i"), "")
+        .trim()
+        .replace(/,$/, "");
+      return `\n\n${label},\n${signOffName}`;
     }
   );
   out = out.replace(/\n{3,}/g, "\n\n");
