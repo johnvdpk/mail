@@ -1,4 +1,4 @@
-import { query, queryOne } from "./db";
+import { query, queryOne } from "../shared/db";
 import { getThreadDetail } from "./mailbox-service";
 import { sendNewMail, sendThreadReply } from "./send-service";
 
@@ -256,7 +256,7 @@ export async function processMailJobs(): Promise<{
       backfillOldestEmbeddings,
       getEmbeddingBackfillStatus,
       EMBEDDING_BACKFILL_BATCH_SIZE,
-    } = await import("./embeddings");
+    } = await import("../ai/embeddings");
     const created = await backfillOldestEmbeddings(EMBEDDING_BACKFILL_BATCH_SIZE);
     const status = await getEmbeddingBackfillStatus();
     embeddingBackfill = { created, ...status };

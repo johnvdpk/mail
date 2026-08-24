@@ -4,7 +4,7 @@ import {
   fallbackKeywordsFromPrompt,
   parseAssessedMatchRow,
   parseKeywords,
-} from "./mail-search";
+} from "@/lib/mail/mail-search";
 
 describe("mail-search helpers", () => {
   it("parses keyword arrays from LLM JSON", () => {
