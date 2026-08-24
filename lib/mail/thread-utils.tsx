@@ -16,6 +16,32 @@ export function formatDateTime(iso: string): string {
   });
 }
 
+/** Format a datetime as day + short month + time (no weekday, no year). */
+export function formatDateShort(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("nl-NL", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+/** Format a datetime as time-only when it is today, otherwise day + short month. */
+export function formatDateRelative(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const today = new Date();
+  const sameDay = date.toDateString() === today.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+}
+
 /** Format bytes as human-readable size (B, kB, MB). */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

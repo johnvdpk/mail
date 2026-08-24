@@ -1,6 +1,7 @@
 "use client";
 
-import type { Thread } from "@/lib/types";
+import type { Thread } from "@/lib/shared/types";
+import { formatDateRelative } from "@/lib/mail/thread-utils";
 import styles from "./ThreadList.module.css";
 
 export type ThreadFilter = "all" | "unread" | "flagged";
@@ -159,7 +160,7 @@ export function ThreadList({
                   <span className={styles.from}>
                     {describeParticipants(thread, account)}
                   </span>
-                  <span className={styles.date}>{formatDate(thread.lastDate)}</span>
+                  <span className={styles.date}>{formatDateRelative(thread.lastDate)}</span>
                 </span>
                 <span className={styles.subject}>
                   {thread.subject}
@@ -200,17 +201,6 @@ function describeParticipants(thread: Thread, account: string): string {
   if (names.length === 0) return "(onbekend)";
   if (names.length <= 2) return names.join(", ");
   return `${names[0]} en ${names.length - 1} anderen`;
-}
-
-function formatDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-
-  const today = new Date();
-  const sameDay = date.toDateString() === today.toDateString();
-  return sameDay
-    ? date.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
 }
 
 function formatTime(iso: string): string {

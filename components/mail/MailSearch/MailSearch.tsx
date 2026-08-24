@@ -8,8 +8,9 @@ import type {
   SearchJobSummary,
   SearchJobView,
   SearchResultView,
-} from "@/lib/search-types";
-import type { EmbeddingBackfillStatus } from "@/lib/embeddings";
+} from "@/lib/shared/search-types";
+import type { EmbeddingBackfillStatus } from "@/lib/ai/embeddings";
+import { formatDateShort } from "@/lib/mail/thread-utils";
 import styles from "./MailSearch.module.css";
 
 type Tab = "jobs" | "contacts";
@@ -63,19 +64,6 @@ function statusClass(status: SearchJobStatus): string {
     return styles.statusEnrich;
   }
   return styles.statusBusy;
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString("nl-NL", {
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
 }
 
 function ResultCard({
@@ -287,7 +275,7 @@ export function MailSearch({
                     >
                       <span className={styles.jobPrompt}>{job.prompt}</span>
                       <span className={styles.jobMeta}>
-                        {formatDate(job.createdAt)} · {job.resultCount} resultaat
+                        {formatDateShort(job.createdAt)} · {job.resultCount} resultaat
                         {job.resultCount === 1 ? "" : "en"}
                       </span>
                       <span className={`${styles.status} ${statusClass(job.status)}`}>
