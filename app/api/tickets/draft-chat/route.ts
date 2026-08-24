@@ -1,14 +1,14 @@
-import { requireAuth } from "@/lib/auth";
-import { chatCompletionStream } from "@/lib/openrouter";
+import { requireAuth } from "@/lib/auth/auth";
+import { chatCompletionStream } from "@/lib/ai/openrouter";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-// "Thinking"-model i.p.v. het lichte standaardmodel: dit gesprek moet actief
-// meedenken over de app (README) en goed kunnen inschatten wanneer door te
-// vragen — dat gaat beter met een redenerend model.
+// Reasoning model instead of the light default: this conversation needs to
+// actively think along about the app (README) and judge well when to ask
+// follow-up questions — a reasoning model handles that better.
 const CHAT_MODEL = "google/gemini-3-flash-preview";
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
