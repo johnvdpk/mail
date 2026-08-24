@@ -1,7 +1,8 @@
-import { requireAuth } from "@/lib/auth";
-import { listContacts, updateContact } from "@/lib/mail-search";
-import type { ContactStatus } from "@/lib/search-types";
+import { requireAuth } from "@/lib/auth/auth";
+import { listContacts, updateContact } from "@/lib/mail/mail-search";
+import type { ContactStatus } from "@/lib/shared/search-types";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ contacts });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Contacten ophalen mislukt";
-    console.error("[ai/contacts GET]", message, err);
+    logger.error({ route: "ai/contacts", method: "GET", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -57,7 +58,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, contact });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bijwerken mislukt";
-    console.error("[ai/contacts PATCH]", message, err);
+    logger.error({ route: "ai/contacts", method: "PATCH", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

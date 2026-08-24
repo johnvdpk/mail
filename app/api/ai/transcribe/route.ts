@@ -1,6 +1,7 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { isOpenRouterConfigured, transcribeAudio } from "@/lib/openrouter";
+import { isOpenRouterConfigured, transcribeAudio } from "@/lib/ai/openrouter";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ text });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Transcriptie mislukt";
-    console.error("[ai/transcribe]", message, err);
+    logger.error({ route: "ai/transcribe", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

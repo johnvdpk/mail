@@ -1,6 +1,7 @@
-import { requireAuth } from "@/lib/auth";
-import { suggestAddresses } from "@/lib/address-book";
+import { requireAuth } from "@/lib/auth/auth";
+import { suggestAddresses } from "@/lib/shared/address-book";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ suggestions });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Suggesties ophalen mislukt";
-    console.error("[contacts/suggest GET]", message, err);
+    logger.error({ route: "contacts/suggest", method: "GET", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

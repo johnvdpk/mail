@@ -1,6 +1,7 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { fetchAttachment } from "@/lib/sync";
+import { fetchAttachment } from "@/lib/mail/sync";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bijlage ophalen mislukt";
-    console.error("[attachment]", message, err);
+    logger.error({ route: "attachment", method: "GET", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,7 +1,8 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { isImapConfigured, withImap } from "@/lib/imap";
-import { fetchFolders } from "@/lib/folders";
+import { isImapConfigured, withImap } from "@/lib/mail/imap";
+import { fetchFolders } from "@/lib/mail/folders";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, folders });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Map-actie mislukt";
-    console.error("[folders/manage]", message, err);
+    logger.error({ route: "folders/manage", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

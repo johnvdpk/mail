@@ -1,8 +1,9 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { suggestTips } from "@/lib/ai-mail";
-import { getThreadDetail, toThreadContext } from "@/lib/mailbox-service";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { suggestTips } from "@/lib/ai/ai-mail";
+import { getThreadDetail, toThreadContext } from "@/lib/mail/mailbox-service";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Tips mislukt";
-    console.error("[ai/tips]", message, err);
+    logger.error({ route: "ai/tips", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

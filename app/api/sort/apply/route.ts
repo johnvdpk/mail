@@ -1,13 +1,14 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { sanitizeFolderName } from "@/lib/ai-sort";
-import { ensureFolder, moveMessages } from "@/lib/mail-actions";
-import { getFolderView } from "@/lib/mailbox-service";
-import { getInboxPath } from "@/lib/folders";
-import { isImapConfigured } from "@/lib/imap";
-import { readFolderCache } from "@/lib/store";
-import type { SortApplyItem } from "@/lib/sort-types";
-import type { MessageSummary } from "@/lib/types";
+import { sanitizeFolderName } from "@/lib/ai/ai-sort";
+import { ensureFolder, moveMessages } from "@/lib/mail/mail-actions";
+import { getFolderView } from "@/lib/mail/mailbox-service";
+import { getInboxPath } from "@/lib/mail/folders";
+import { isImapConfigured } from "@/lib/mail/imap";
+import { readFolderCache } from "@/lib/shared/store";
+import type { SortApplyItem } from "@/lib/shared/sort-types";
+import type { MessageSummary } from "@/lib/shared/types";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, moved, ...view });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Toepassen mislukt";
-    console.error("[sort/apply]", message, err);
+    logger.error({ route: "sort/apply", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

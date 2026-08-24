@@ -1,10 +1,11 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { isSmtpConfigured } from "@/lib/mail";
-import { getFolderView, resolveFolderPath } from "@/lib/mailbox-service";
-import { validateOutgoingRecipients } from "@/lib/email-validation";
-import { parseMailForm } from "@/lib/parse-mail-form";
-import { forwardThread } from "@/lib/send-service";
+import { isSmtpConfigured } from "@/lib/mail/mail";
+import { getFolderView, resolveFolderPath } from "@/lib/mail/mailbox-service";
+import { validateOutgoingRecipients } from "@/lib/shared/email-validation";
+import { parseMailForm } from "@/lib/mail/parse-mail-form";
+import { forwardThread } from "@/lib/mail/send-service";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Doorsturen mislukt";
     const status = message.includes("te groot") ? 413 : 500;
-    console.error("[mail/forward]", message, err);
+    logger.error({ route: "mail/forward", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status });
   }
 }

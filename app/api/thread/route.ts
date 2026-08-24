@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
 import {
   getFolderView,
@@ -6,7 +6,8 @@ import {
   markThreadSeen,
   resolveFolderPath,
   resolveThreadFromMessage,
-} from "@/lib/mailbox-service";
+} from "@/lib/mail/mailbox-service";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -47,7 +48,7 @@ export async function GET(request: Request) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Conversatie ophalen mislukt";
-    console.error("[thread/get]", message, err);
+    logger.error({ route: "thread", method: "GET", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -77,7 +78,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true, ...view });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Bijwerken mislukt";
-    console.error("[thread/patch]", message, err);
+    logger.error({ route: "thread", method: "PATCH", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

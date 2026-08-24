@@ -1,10 +1,11 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { isImapConfigured, withMailbox } from "@/lib/imap";
-import { getThreadDetail, getFolderView, resolveFolderPath } from "@/lib/mailbox-service";
-import { moveMessages } from "@/lib/mail-actions";
-import { patchSummary, removeSummaries } from "@/lib/store";
-import type { MessageSummary } from "@/lib/types";
+import { isImapConfigured, withMailbox } from "@/lib/mail/imap";
+import { getThreadDetail, getFolderView, resolveFolderPath } from "@/lib/mail/mailbox-service";
+import { moveMessages } from "@/lib/mail/mail-actions";
+import { patchSummary, removeSummaries } from "@/lib/shared/store";
+import type { MessageSummary } from "@/lib/shared/types";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...view });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Actie mislukt";
-    console.error("[thread/actions]", message, err);
+    logger.error({ route: "thread/actions", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

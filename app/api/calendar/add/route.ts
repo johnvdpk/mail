@@ -1,8 +1,9 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { createGoogleEvent, getGoogleStatus, isGoogleConfigured } from "@/lib/google-calendar";
-import { loadBody } from "@/lib/sync";
-import type { CalendarInvite } from "@/lib/ics";
+import { createGoogleEvent, getGoogleStatus, isGoogleConfigured } from "@/lib/calendar/google-calendar";
+import { loadBody } from "@/lib/mail/sync";
+import type { CalendarInvite } from "@/lib/calendar/ics";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Toevoegen mislukt";
-    console.error("[calendar/add]", message, err);
+    logger.error({ route: "calendar/add", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

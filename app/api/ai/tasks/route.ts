@@ -1,14 +1,15 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { extractTasks } from "@/lib/ai-mail";
+import { extractTasks } from "@/lib/ai/ai-mail";
 import {
   deleteExtractedTasks,
   getExtractedTasks,
   listExtractedTasks,
   saveExtractedTasks,
-} from "@/lib/extracted-tasks";
-import { getThreadDetail, toThreadContext } from "@/lib/mailbox-service";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+} from "@/lib/ai/extracted-tasks";
+import { getThreadDetail, toThreadContext } from "@/lib/mail/mailbox-service";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -45,7 +46,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, items });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Taken ophalen mislukt";
-    console.error("[ai/tasks GET]", message, err);
+    logger.error({ route: "ai/tasks", method: "GET", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, summary: result.summary, tasks: result.tasks, doc });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Taken extraheren mislukt";
-    console.error("[ai/tasks POST]", message, err);
+    logger.error({ route: "ai/tasks", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -123,7 +124,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Verwijderen mislukt";
-    console.error("[ai/tasks DELETE]", message, err);
+    logger.error({ route: "ai/tasks", method: "DELETE", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

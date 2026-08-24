@@ -1,8 +1,9 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { suggestInboxSort } from "@/lib/ai-sort";
-import { isImapConfigured } from "@/lib/imap";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { suggestInboxSort } from "@/lib/ai/ai-sort";
+import { isImapConfigured } from "@/lib/mail/imap";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -23,7 +24,7 @@ export async function POST() {
     return NextResponse.json({ suggestions });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Sorteren mislukt";
-    console.error("[sort/preview]", message, err);
+    logger.error({ route: "sort/preview", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

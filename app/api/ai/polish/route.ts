@@ -1,9 +1,10 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { streamPolishDraft } from "@/lib/ai-mail";
-import { ndjsonStream, streamResponse } from "@/lib/ai-stream";
-import { getThreadDetail, toThreadContext } from "@/lib/mailbox-service";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { streamPolishDraft } from "@/lib/ai/ai-mail";
+import { ndjsonStream, streamResponse } from "@/lib/ai/ai-stream";
+import { getThreadDetail, toThreadContext } from "@/lib/mail/mailbox-service";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Correctie mislukt";
-    console.error("[ai/polish]", message, err);
+    logger.error({ route: "ai/polish", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

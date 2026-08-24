@@ -1,8 +1,9 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { isImapConfigured } from "@/lib/imap";
-import { getFolderView, resolveFolderPath } from "@/lib/mailbox-service";
-import { syncFolder } from "@/lib/sync";
+import { isImapConfigured } from "@/lib/mail/imap";
+import { getFolderView, resolveFolderPath } from "@/lib/mail/mailbox-service";
+import { syncFolder } from "@/lib/mail/sync";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result, ...view });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Sync mislukt";
-    console.error("[sync]", message, err);
+    logger.error({ route: "sync", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

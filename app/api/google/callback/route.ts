@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { requireAuth } from "@/lib/auth";
-import { exchangeCode, isGoogleConfigured } from "@/lib/google-calendar";
+import { requireAuth } from "@/lib/auth/auth";
+import { exchangeCode, isGoogleConfigured } from "@/lib/calendar/google-calendar";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     return response;
   } catch (e) {
     const message = e instanceof Error ? e.message : "koppelen mislukt";
-    console.error("[google/callback]", message, e);
+    logger.error({ route: "google/callback", method: "GET", err: e }, message);
     return NextResponse.redirect(
       new URL(`/?google=error&msg=${encodeURIComponent(message.slice(0, 120))}`, request.url)
     );

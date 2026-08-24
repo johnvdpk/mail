@@ -20,7 +20,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    console.error("[ErrorBoundary]", error, info.componentStack);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[ErrorBoundary]", error, info.componentStack);
+    }
   }
 
   private reset = (): void => {

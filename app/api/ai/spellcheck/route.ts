@@ -1,7 +1,8 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { checkSpelling } from "@/lib/ai-mail";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { checkSpelling } from "@/lib/ai/ai-mail";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Spellingcontrole mislukt";
-    console.error("[ai/spellcheck]", message, err);
+    logger.error({ route: "ai/spellcheck", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

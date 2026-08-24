@@ -1,12 +1,13 @@
-import { requireAuth } from "@/lib/auth";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { requireAuth } from "@/lib/auth/auth";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
 import {
   deleteSearchJob,
   getSearchJob,
   listSearchJobs,
   startSearchJob,
-} from "@/lib/mail-search";
+} from "@/lib/mail/mail-search";
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/shared/logger";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ jobs });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Zoekopdrachten ophalen mislukt";
-    console.error("[ai/search GET]", message, err);
+    logger.error({ route: "ai/search", method: "GET", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, job });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Zoekopdracht mislukt";
-    console.error("[ai/search POST]", message, err);
+    logger.error({ route: "ai/search", method: "POST", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -88,7 +89,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Verwijderen mislukt";
-    console.error("[ai/search DELETE]", message, err);
+    logger.error({ route: "ai/search", method: "DELETE", err }, message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
