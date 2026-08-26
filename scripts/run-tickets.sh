@@ -137,8 +137,20 @@ ${SUMMARY_END}"
     ticket_summary="(Geen samenvatting teruggegeven door de agent, zie agent-log voor details.)"
   fi
 
-  deploy_status="not_attempted"
+  lint_test_ok=1
   if [ "$commits_ahead" -gt 0 ] && [ "$claude_exit" -eq 0 ]; then
+    echo "--- lint + test gate op branch $branch ---" | tee -a "$log_file"
+    if ! npm run lint >>"$log_file" 2>&1; then
+      echo "$(date -Is) LINT FAILED, geen merge." | tee -a "$log_file"
+      lint_test_ok=0
+    elif ! npm test >>"$log_file" 2>&1; then
+      echo "$(date -Is) TESTS FAILED, geen merge." | tee -a "$log_file"
+      lint_test_ok=0
+    fi
+  fi
+
+  deploy_status="not_attempted"
+  if [ "$commits_ahead" -gt 0 ] && [ "$claude_exit" -eq 0 ] && [ "$lint_test_ok" -eq 1 ]; then
     status="success"
 
     echo "--- mergen naar main en deployen ---"
