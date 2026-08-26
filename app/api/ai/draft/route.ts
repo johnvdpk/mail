@@ -21,9 +21,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as { threadId?: string; intent?: string };
+    const body = (await request.json()) as {
+      threadId?: string;
+      intent?: string;
+      draft?: string;
+    };
     const threadId = body.threadId?.trim();
     const intent = body.intent?.trim();
+    const draft = body.draft?.trim();
 
     if (!threadId) {
       return NextResponse.json({ error: "threadId verplicht" }, { status: 400 });
@@ -43,7 +48,7 @@ export async function POST(request: Request) {
       ndjsonStream(async (emit) => {
         let lastBody = "";
 
-        for await (const update of streamDraftReply(context, intent)) {
+        for await (const update of streamDraftReply(context, intent, draft)) {
           if (update.body !== lastBody) {
             lastBody = update.body;
             emit({ type: "chunk", body: update.body });

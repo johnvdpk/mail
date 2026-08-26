@@ -61,7 +61,8 @@ function stringArray(value: unknown, limit: number): string[] {
 }
 
 const REPLY_SYSTEM = `Je helpt John met een korte e-mail reply.
-Je krijgt de volledige conversatie en een reply-template met een intentie.
+Je krijgt de volledige conversatie en een korte instructie van John (kernwoorden of een zin).
+Als er een HUIDIG CONCEPT is, herschrijf dat volgens de instructie in plaats van vanaf nul te schrijven.
 
 Schrijf ALLEEN de body van de reply (geen onderwerpregel).
 TAAL: schrijf in de taal van de conversatie (laatste berichten). Engels gesprek → Engels reply. Nederlands → Nederlands. Vertaal niet.
@@ -73,39 +74,49 @@ Behoud Johns tone of voice strikt (toon/stijl, niet de taal van de regels forcer
 Antwoord uitsluitend als JSON-object met exact deze key:
 - body (string, gebruik \\n voor regeleinden)`;
 
-/**
- * Generate an AI-powered reply draft based on conversation context and intent.
- * Uses OpenRouter to draft professional or casual replies.
- *
- * @param threadId Email thread ID
- * @param context Thread context including messages and counterpart info
- * @param intent User's desired tone/action (e.g., "acknowledge", "apologize", "suggest meeting")
- * @returns Generated reply draft with body and intent confirmation
- * @throws Error if OpenRouter API fails or intent not understood
- */
+function draftUserContent(context: ThreadContext, intentHint: string, existingDraft?: string): string {
+  const parts = [
+    intentHint,
+    "",
+    "=== CONVERSATIE ===",
+    formatThread(context),
+  ];
+  if (existingDraft?.trim()) {
+    parts.push(
+      "",
+      "=== HUIDIG CONCEPT ===",
+      existingDraft.trim(),
+      "",
+      "Herschrijf het concept volgens de instructie. Behoud feiten. Schrijf de nieuwe reply-body."
+    );
+  } else {
+    parts.push("", "Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.");
+  }
+  return parts.join("\n");
+}
+
+function draftIntentHint(config: EmailConfig, intent: string): string {
+  const template = config.replies.find((r) => r.id === intent);
+  return template?.hint
+    ? `Intentie: ${template.label}. ${template.hint}`
+    : `Instructie: ${intent}`;
+}
+
 export async function draftReply(
   context: ThreadContext,
-  intent: string
+  intent: string,
+  existingDraft?: string
 ): Promise<ReplyDraftResult> {
   const config = await readEmailConfig();
-  const template = config.replies.find((r) => r.id === intent);
   const systemPrompt = `${REPLY_SYSTEM}\n\n${buildReplyPromptContext(config, intent)}`;
-
-  const intentHint = template?.hint
-    ? `Intentie: ${template.label}. ${template.hint}`
-    : `Intentie: ${intent}`;
+  const intentHint = draftIntentHint(config, intent);
 
   const raw = await chatCompletion(
     [
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `${intentHint}
-
-=== CONVERSATIE ===
-${formatThread(context)}
-
-Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.`,
+        content: draftUserContent(context, intentHint, existingDraft),
       },
     ],
     { jsonMode: true, temperature: 0.35, model: getHeavyModel() }
@@ -124,15 +135,12 @@ Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.
 /** Streaming variant of draftReply — yields incremental body text, then the final result. */
 export async function* streamDraftReply(
   context: ThreadContext,
-  intent: string
+  intent: string,
+  existingDraft?: string
 ): AsyncGenerator<{ body: string; final?: ReplyDraftResult }> {
   const config = await readEmailConfig();
-  const template = config.replies.find((r) => r.id === intent);
   const systemPrompt = `${REPLY_SYSTEM}\n\n${buildReplyPromptContext(config, intent)}`;
-
-  const intentHint = template?.hint
-    ? `Intentie: ${template.label}. ${template.hint}`
-    : `Intentie: ${intent}`;
+  const intentHint = draftIntentHint(config, intent);
 
   let raw = "";
   let lastBody = "";
@@ -142,12 +150,7 @@ export async function* streamDraftReply(
       { role: "system", content: systemPrompt },
       {
         role: "user",
-        content: `${intentHint}
-
-=== CONVERSATIE ===
-${formatThread(context)}
-
-Schrijf nu de reply-body. Reageer concreet op hun laatste bericht als dat er is.`,
+        content: draftUserContent(context, intentHint, existingDraft),
       },
     ],
     { jsonMode: true, temperature: 0.35, model: getHeavyModel() }

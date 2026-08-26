@@ -39,9 +39,19 @@ export async function POST(request: Request) {
         await withImap((client) => client.mailboxRename(path, body.newPath!.trim()));
         break;
       }
-      case "delete":
-        await withImap((client) => client.mailboxDelete(path));
+      case "delete": {
+        try {
+          await withImap((client) => client.mailboxDelete(path));
+        } catch (err) {
+          // Folder may already be gone on the server; drop it from the local list anyway.
+          const folders = await fetchFolders();
+          if (!folders.some((f) => f.path === path)) {
+            return NextResponse.json({ ok: true, folders });
+          }
+          throw err;
+        }
         break;
+      }
       default:
         return NextResponse.json({ error: `Onbekende actie: ${action}` }, { status: 400 });
     }

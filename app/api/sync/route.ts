@@ -23,10 +23,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const requested = new URL(request.url).searchParams.get("folder");
+    const params = new URL(request.url).searchParams;
+    const requested = params.get("folder");
+    const refresh = params.get("refresh") === "1";
     const folder = await resolveFolderPath(requested);
     const result = await syncFolder(folder);
-    const view = await getFolderView(folder);
+    const view = await getFolderView(folder, { refreshFolders: refresh });
 
     return NextResponse.json({ ok: true, ...result, ...view });
   } catch (err) {
