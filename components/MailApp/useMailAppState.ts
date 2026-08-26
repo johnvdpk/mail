@@ -1,21 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { EmailConfig } from "@/lib/email-config-shared";
-import { buildMailForm } from "@/lib/mail-form-client";
-import type { TipsResult } from "@/lib/ai-mail";
-import { consumeAiStream } from "@/lib/ai-stream";
-import type { ExtractedTasksDoc, ExtractedTasksSummary } from "@/lib/extracted-tasks-types";
-import type { FolderSummary, Thread, ThreadDetail } from "@/lib/types";
-import type { ThreadFilter } from "@/components/ThreadList/ThreadList";
-import type { SortSuggestion } from "@/lib/sort-types";
-import type { SortConfirmItem } from "@/components/SortReview/SortReview";
-import type { ContactStatus, ContactView, SearchJobSummary, SearchJobView } from "@/lib/search-types";
-import type { EmbeddingBackfillStatus } from "@/lib/embeddings";
-import type { TicketDetail, TicketSummary } from "@/lib/tickets";
-import type { Note } from "@/lib/notes";
-import { applyUnreadIndicator, notifyNewMail } from "./unread-indicator";
-
-const POLL_INTERVAL_MS = 60_000;
-const SEARCH_POLL_MS = 8_000;
+import { useRef, useState } from "react";
+import type { FolderSummary, Thread } from "@/lib/shared/types";
+import type { LineInput, OpenLineItem } from "@/lib/projects/types";
+import { useMailThreadsState } from "@/components/mail/hooks/useMailThreadsState";
+import { useReplyComposeState } from "@/components/mail/hooks/useReplyComposeState";
+import { useAiToolsState } from "@/components/mail/hooks/useAiToolsState";
+import { useSemanticSearchState } from "@/components/mail/hooks/useSemanticSearchState";
+import { useTicketsState } from "@/components/tickets/hooks/useTicketsState";
+import { useNotesState } from "@/components/notes/hooks/useNotesState";
+import { useProjectsState } from "@/components/projects/hooks/useProjectsState";
+import { useOutreachState } from "@/components/outreach/hooks/useOutreachState";
+import { apiRequest } from "@/lib/shared/api-request";
 
 export function useMailAppState(
   initialFolders: FolderSummary[],
@@ -25,1328 +19,371 @@ export function useMailAppState(
   imapReady: boolean,
   aiReady: boolean
 ) {
-  const [folders, setFolders] = useState(initialFolders);
-  const [folder, setFolder] = useState(initialFolder);
-  const [threads, setThreads] = useState(initialThreads);
-  const [syncedAt, setSyncedAt] = useState(initialSyncedAt);
-  const [showSettings, setShowSettings] = useState(false);
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<ThreadDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [filter, setFilter] = useState<ThreadFilter>("all");
-  const [search, setSearch] = useState("");
-  const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [replyCc, setReplyCc] = useState("");
-  const [replyBcc, setReplyBcc] = useState("");
-  const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
-  const [replyAttachmentError, setReplyAttachmentError] = useState<string | null>(null);
-  const [draftingIntent, setDraftingIntent] = useState<string | null>(null);
-  const [polishing, setPolishing] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [polishNotes, setPolishNotes] = useState<string | null>(null);
-  const [forwardOpen, setForwardOpen] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [tips, setTips] = useState<TipsResult | null>(null);
-  const [tipsLoading, setTipsLoading] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
-  const [tasksDoc, setTasksDoc] = useState<ExtractedTasksDoc | null>(null);
-  const [tasksLoading, setTasksLoading] = useState(false);
-  const [tasksEmptyNotice, setTasksEmptyNotice] = useState<string | null>(null);
-  const [showTasksLibrary, setShowTasksLibrary] = useState(false);
-  const [tasksLibraryItems, setTasksLibraryItems] = useState<ExtractedTasksSummary[]>([]);
-  const [tasksLibraryActive, setTasksLibraryActive] = useState<ExtractedTasksDoc | null>(null);
-  const [tasksLibraryLoading, setTasksLibraryLoading] = useState(false);
-  const [draftingPoint, setDraftingPoint] = useState<string | null>(null);
-  const [sortSuggestions, setSortSuggestions] = useState<SortSuggestion[] | null>(null);
-  const [sortingPreview, setSortingPreview] = useState(false);
-  const [sortingApply, setSortingApply] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchBusy, setSearchBusy] = useState(false);
-  const [searchJobs, setSearchJobs] = useState<SearchJobSummary[]>([]);
-  const [activeSearchJob, setActiveSearchJob] = useState<SearchJobView | null>(null);
-  const [embeddingProgress, setEmbeddingProgress] = useState<EmbeddingBackfillStatus | null>(
-    null
-  );
-  const [contacts, setContacts] = useState<ContactView[]>([]);
-  const [contactsLoading, setContactsLoading] = useState(false);
-  const [contactStatusFilter, setContactStatusFilter] = useState<ContactStatus | "all">("all");
-  const [googleConnected, setGoogleConnected] = useState(false);
-  const [googleConfigured, setGoogleConfigured] = useState(false);
-  const [suggestedIntentId, setSuggestedIntentId] = useState<string | null>(null);
-  const [suggestedConfidence, setSuggestedConfidence] = useState<number | null>(null);
-  const [suggestedReason, setSuggestedReason] = useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewLabel, setPreviewLabel] = useState("");
-  const [previewText, setPreviewText] = useState("");
-  const [previewStreaming, setPreviewStreaming] = useState(false);
-  const [undoSeconds, setUndoSeconds] = useState<number | null>(null);
-  const [showTickets, setShowTickets] = useState(false);
-  const [tickets, setTickets] = useState<TicketSummary[]>([]);
-  const [activeTicket, setActiveTicket] = useState<TicketDetail | null>(null);
-  const [ticketsLoading, setTicketsLoading] = useState(false);
-  const [ticketSubmitting, setTicketSubmitting] = useState(false);
-  const [commentSubmitting, setCommentSubmitting] = useState(false);
-  const [showNotes, setShowNotes] = useState(false);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [activeNote, setActiveNote] = useState<Note | null>(null);
-  const [notesLoading, setNotesLoading] = useState(false);
-  const [noteSubmitting, setNoteSubmitting] = useState(false);
+  const openThreadRef = useRef<(id: string) => Promise<void>>(async () => {});
 
-  const syncingRef = useRef(false);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const undoCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pendingSendRef = useRef<null | (() => Promise<void>)>(null);
-  const pendingDraftRef = useRef<string | null>(null);
-  const prevInboxUnreadRef = useRef<number | null>(null);
-
-  const inboxPath = useMemo(() => folders.find((f) => f.role === "inbox")?.path ?? "INBOX", [folders]);
-
-  const applyView = useCallback(
-    (data: { folders?: FolderSummary[]; folder?: string; threads?: Thread[]; syncedAt?: string }) => {
-      if (data.folders) setFolders(data.folders);
-      if (data.folder) setFolder(data.folder);
-      if (data.threads) setThreads(data.threads);
-      setSyncedAt(data.syncedAt);
-    },
-    []
+  const mail = useMailThreadsState(
+    initialFolders,
+    initialFolder,
+    initialThreads,
+    initialSyncedAt,
+    imapReady
   );
 
-  const sync = useCallback(
-    async (targetFolder: string) => {
-      if (!imapReady || syncingRef.current) return;
-      syncingRef.current = true;
-      setSyncing(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/sync?folder=${encodeURIComponent(targetFolder)}`, {
-          method: "POST",
-          credentials: "same-origin",
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Sync mislukt");
-        applyView(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Sync mislukt");
-      } finally {
-        syncingRef.current = false;
-        setSyncing(false);
-      }
-    },
-    [applyView, imapReady]
-  );
+  const reply = useReplyComposeState({
+    activeThreadId: mail.activeThreadId,
+    folder: mail.folder,
+    openThread: (id) => openThreadRef.current(id),
+    setError: mail.setError,
+    setNotice: mail.setNotice,
+    applyView: mail.applyView,
+    clearActiveThread: mail.clearActiveThread,
+  });
 
-  const loadThreads = useCallback(
-    async (targetFolder: string) => {
-      try {
-        const res = await fetch(`/api/threads?folder=${encodeURIComponent(targetFolder)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Ophalen mislukt");
-        applyView(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Ophalen mislukt");
-      }
-    },
-    [applyView]
-  );
+  const ai = useAiToolsState({
+    activeThreadId: mail.activeThreadId,
+    folder: mail.folder,
+    setError: mail.setError,
+    setNotice: mail.setNotice,
+    applyView: mail.applyView,
+    loadThreads: mail.loadThreads,
+    inboxPath: mail.inboxPath,
+    setShowSettings: mail.setShowSettings,
+    imapReady,
+    aiReady,
+  });
 
-  useEffect(() => {
-    void sync(initialFolder);
-  }, [initialFolder, sync]);
+  const search = useSemanticSearchState({
+    applyEmbeddingProgress: mail.applyEmbeddingProgress,
+    processJobs: mail.processJobs,
+    aiReady,
+    setError: mail.setError,
+  });
 
-  useEffect(() => {
-    void fetch("/api/google/status")
-      .then((res) => res.json())
-      .then((data) => {
-        setGoogleConnected(Boolean(data.connected));
-        setGoogleConfigured(Boolean(data.configured));
-      })
-      .catch(() => {
-        setGoogleConnected(false);
-        setGoogleConfigured(false);
-      });
+  const tickets = useTicketsState({
+    setShowSettings: mail.setShowSettings,
+    setShowTasksLibrary: ai.setShowTasksLibrary,
+    setNotice: mail.setNotice,
+    setError: mail.setError,
+  });
 
-    const params = new URLSearchParams(window.location.search);
-    const google = params.get("google");
-    if (google === "connected") {
-      setNotice("Google Agenda gekoppeld");
-      setGoogleConnected(true);
-      window.history.replaceState({}, "", "/");
-    } else if (google === "error" || google === "state" || google === "config") {
-      setError(params.get("msg") || "Google-koppeling mislukt");
-      window.history.replaceState({}, "", "/");
-    }
-  }, []);
+  const notes = useNotesState({
+    setShowSettings: mail.setShowSettings,
+    setShowTasksLibrary: ai.setShowTasksLibrary,
+    setShowTickets: tickets.setShowTickets,
+    setNotice: mail.setNotice,
+    setError: mail.setError,
+  });
 
-  useEffect(() => {
-    if (!imapReady) return;
-    const timer = setInterval(() => {
-      void sync(folder);
-      void processJobs();
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [folder, imapReady, sync]);
+  const projects = useProjectsState({
+    setShowSettings: mail.setShowSettings,
+    setShowTasksLibrary: ai.setShowTasksLibrary,
+    setShowTickets: tickets.setShowTickets,
+    setShowNotes: notes.setShowNotes,
+    setNotice: mail.setNotice,
+    setError: mail.setError,
+  });
 
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission === "default") {
-      void Notification.requestPermission();
-    }
-  }, []);
+  const outreach = useOutreachState({
+    setShowSettings: mail.setShowSettings,
+    setShowTasksLibrary: ai.setShowTasksLibrary,
+    setShowTickets: tickets.setShowTickets,
+    setShowNotes: notes.setShowNotes,
+    setShowProjects: projects.setShowProjects,
+  });
 
-  useEffect(() => {
-    const inboxUnread = folders.find((f) => f.role === "inbox")?.unread ?? 0;
-    applyUnreadIndicator(inboxUnread);
-    const prev = prevInboxUnreadRef.current;
-    if (prev !== null && inboxUnread > prev) {
-      notifyNewMail(inboxUnread - prev);
-    }
-    prevInboxUnreadRef.current = inboxUnread;
-  }, [folders]);
+  const [composePrefill, setComposePrefill] = useState<{
+    to?: string;
+    subject?: string;
+    body?: string;
+  } | null>(null);
+  const [bookMessageId, setBookMessageId] = useState<string | null>(null);
 
-  function applyEmbeddingProgress(data: {
-    embeddingBackfill?: EmbeddingBackfillStatus & { created?: number };
-  }) {
-    if (!data.embeddingBackfill) return;
-    const { total, embedded, pending } = data.embeddingBackfill;
-    setEmbeddingProgress({ total, embedded, pending });
+  function openCompose(prefill?: { to?: string; subject?: string; body?: string }) {
+    setComposePrefill(prefill ?? null);
+    mail.setComposeOpen(true);
   }
 
-  async function processJobs() {
+  function closeCompose() {
+    setComposePrefill(null);
+    mail.setComposeOpen(false);
+  }
+
+  async function remindOpenItem(item: OpenLineItem) {
+    projects.setRemindingId(item.lineId);
     try {
-      const res = await fetch("/api/mail-jobs");
-      const data = await res.json();
-      if (!res.ok) return;
-      applyEmbeddingProgress(data);
-      if (Array.isArray(data.woken) && data.woken.length > 0) {
-        setNotice(`${data.woken.length} gesnoozede mail(s) terug in Inbox`);
-        void loadThreads(folder);
-      }
-      if (Array.isArray(data.followUps) && data.followUps.length > 0) {
-        setNotice(
-          `Follow-up: ${data.followUps.length} conversatie(s) wachten nog op antwoord`
-        );
-      }
-      if (data.scheduledSent > 0) {
-        setNotice(`${data.scheduledSent} geplande mail(s) verstuurd`);
-        void sync(folder);
-      }
-    } catch {
-      // Non-blocking
-    }
-  }
-
-  const visibleThreads = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const filtered = threads.filter((thread) => {
-      if (filter === "unread" && !thread.unread) return false;
-      if (filter === "flagged" && !thread.flagged) return false;
-      return true;
-    });
-
-    if (!query) return filtered;
-
-    const scored = filtered
-      .map((thread) => {
-        const emails = thread.participants.map((p) => p.email.toLowerCase()).join(" ");
-        const names = thread.participants.map((p) => p.name ?? "").join(" ").toLowerCase();
-        const subject = thread.subject.toLowerCase();
-        const snippet = thread.snippet.toLowerCase();
-
-        let score = 0;
-        if (emails.includes(query)) score += 100;
-        if (names.includes(query)) score += 80;
-        if (subject.includes(query)) score += 50;
-        if (snippet.includes(query)) score += 10;
-
-        return { thread, score };
-      })
-      .filter((entry) => entry.score > 0);
-
-    scored.sort((a, b) => b.score - a.score);
-    return scored.map((entry) => entry.thread);
-  }, [threads, filter, search]);
-
-  async function openThread(threadId: string) {
-    setActiveThreadId(threadId);
-    setDetailLoading(true);
-    setReplyText("");
-    setReplyCc("");
-    setReplyBcc("");
-    setReplyAttachments([]);
-    setReplyAttachmentError(null);
-    setPolishNotes(null);
-    setTips(null);
-    setTasksDoc(null);
-    setTasksEmptyNotice(null);
-    setError(null);
-    setSuggestedIntentId(null);
-    setSuggestedConfidence(null);
-    setSuggestedReason(null);
-    setPreviewOpen(false);
-
-    try {
-      const res = await fetch(`/api/thread?id=${encodeURIComponent(threadId)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Conversatie ophalen mislukt");
-      setDetail(data);
-      if (data.thread?.unread) void setSeen(threadId, true);
-      if (aiReady) void loadIntentSuggestion(threadId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Conversatie ophalen mislukt");
-      setDetail(null);
-    } finally {
-      setDetailLoading(false);
-    }
-  }
-
-  /** Open the thread before/after the current one in the visible list (arrow key navigation). */
-  function selectAdjacentThread(direction: 1 | -1) {
-    if (visibleThreads.length === 0) return;
-    const currentIndex = visibleThreads.findIndex((t) => t.id === activeThreadId);
-    const nextIndex =
-      currentIndex === -1
-        ? 0
-        : Math.min(Math.max(currentIndex + direction, 0), visibleThreads.length - 1);
-    const next = visibleThreads[nextIndex];
-    if (next && next.id !== activeThreadId) void openThread(next.id);
-  }
-
-  /** Clear the open thread (used for mobile back-to-list). */
-  function closeThread() {
-    setActiveThreadId(null);
-    setDetail(null);
-    setDetailLoading(false);
-    setReplyText("");
-    setReplyCc("");
-    setReplyBcc("");
-    setReplyAttachments([]);
-    setReplyAttachmentError(null);
-    setPolishNotes(null);
-    setTips(null);
-    setTasksDoc(null);
-    setAiOpen(false);
-    setTasksOpen(false);
-    setPreviewOpen(false);
-  }
-
-  async function loadIntentSuggestion(threadId: string) {
-    try {
-      const res = await fetch(`/api/ai/intent?threadId=${encodeURIComponent(threadId)}`);
-      const data = await res.json();
-      if (!res.ok) return;
-      setSuggestedIntentId(typeof data.intentId === "string" ? data.intentId : null);
-      setSuggestedConfidence(typeof data.confidence === "number" ? data.confidence : null);
-      setSuggestedReason(typeof data.reason === "string" ? data.reason : null);
-    } catch {
-      // Non-blocking
-    }
-  }
-
-  async function setSeen(threadId: string, seen: boolean, folderOverride?: string) {
-    try {
-      const res = await fetch("/api/thread", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: threadId, folder: folderOverride ?? folder, seen }),
-      });
-      const data = await res.json();
-      if (res.ok) applyView(data);
-    } catch {
-      // Retry on next sync
-    }
-  }
-
-  async function selectFolder(path: string) {
-    setShowSettings(false);
-    setShowTasksLibrary(false);
-    setShowTickets(false);
-    setShowNotes(false);
-    setFolder(path);
-    setActiveThreadId(null);
-    setDetail(null);
-    setAiOpen(false);
-    setTasksOpen(false);
-    await loadThreads(path);
-    void sync(path);
-  }
-
-  async function quickReply(intent: string, label?: string) {
-    if (!activeThreadId) return;
-    setDraftingIntent(intent);
-    setError(null);
-    setPreviewLabel(label ?? intent);
-    setPreviewText("");
-    setPreviewOpen(true);
-    setPreviewStreaming(true);
-    setPolishNotes(null);
-    try {
-      const res = await fetch("/api/ai/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: activeThreadId, intent }),
-      });
-      const result = await consumeAiStream(res, (body) => setPreviewText(body));
-      setPreviewText(result.body);
-    } catch (err) {
-      setPreviewOpen(false);
-      setError(err instanceof Error ? err.message : "AI-draft mislukt");
-    } finally {
-      setDraftingIntent(null);
-      setPreviewStreaming(false);
-    }
-  }
-
-  function keepEditingPreview() {
-    setReplyText(previewText);
-    setPreviewOpen(false);
-  }
-
-  function clearUndoTimers() {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (undoCountdownRef.current) clearInterval(undoCountdownRef.current);
-    undoTimerRef.current = null;
-    undoCountdownRef.current = null;
-    pendingSendRef.current = null;
-    setUndoSeconds(null);
-  }
-
-  function queueSendWithUndo(text: string, performSend: () => Promise<void>) {
-    clearUndoTimers();
-    pendingSendRef.current = performSend;
-    setUndoSeconds(8);
-    setNotice("Mail wordt over 8 seconden verstuurd…");
-
-    undoCountdownRef.current = setInterval(() => {
-      setUndoSeconds((prev) => {
-        if (prev === null || prev <= 1) return 0;
-        return prev - 1;
-      });
-    }, 1000);
-
-    undoTimerRef.current = setTimeout(() => {
-      const run = pendingSendRef.current;
-      clearUndoTimers();
-      if (run) void run();
-    }, 8000);
-
-    // Keep draft for undo restore
-    pendingDraftRef.current = text;
-  }
-
-  function undoSend() {
-    const draft = pendingDraftRef.current;
-    clearUndoTimers();
-    if (draft) setReplyText(draft);
-    pendingDraftRef.current = null;
-    setNotice("Verzenden geannuleerd");
-  }
-
-  async function performReplySend(text: string) {
-    if (!activeThreadId || !text.trim()) return;
-    setSending(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        "/api/mail/reply",
-        {
-          method: "POST",
-          body: buildMailForm(
-            {
-              threadId: activeThreadId,
-              folder,
-              text,
-              cc: replyCc || undefined,
-              bcc: replyBcc || undefined,
-            },
-            replyAttachments
-          ),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Versturen mislukt");
-      applyView(data);
-      setReplyText("");
-      setReplyCc("");
-      setReplyBcc("");
-      setReplyAttachments([]);
-      setReplyAttachmentError(null);
-      setPolishNotes(null);
-      setNotice(`Antwoord verstuurd naar ${data.to}`);
-      await openThread(activeThreadId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Versturen mislukt");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function confirmPreviewSend() {
-    if (!activeThreadId || !previewText.trim()) return;
-    const text = previewText;
-    setPreviewOpen(false);
-    setPreviewText("");
-    queueSendWithUndo(text, () => performReplySend(text));
-  }
-
-  async function polishReply() {
-    if (!replyText.trim()) return;
-    setPolishing(true);
-    setError(null);
-    setPolishNotes(null);
-    try {
-      const res = await fetch("/api/ai/polish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: activeThreadId, text: replyText }),
-      });
-      const result = await consumeAiStream(res, (body) => setReplyText(body));
-      setReplyText(result.body);
-      setPolishNotes(result.notes || null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Correctie mislukt");
-    } finally {
-      setPolishing(false);
-    }
-  }
-
-  async function sendReply() {
-    if (!activeThreadId || !replyText.trim()) return;
-    const text = replyText;
-    setReplyText("");
-    queueSendWithUndo(text, () => performReplySend(text));
-  }
-
-  async function snoozeThread(option: "1h" | "tomorrow" | "friday" | "nextweek") {
-    if (!activeThreadId) return;
-    setError(null);
-    try {
-      const res = await fetch("/api/mail-jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "snooze", threadId: activeThreadId, folder, option }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Snooze mislukt");
-      applyView(data);
-      setActiveThreadId(null);
-      setDetail(null);
-      setNotice(`Gesnoozed tot ${new Date(data.wakeAt).toLocaleString("nl-NL")}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Snooze mislukt");
-    }
-  }
-
-  async function setFollowUp(days: number) {
-    if (!activeThreadId) return;
-    setError(null);
-    try {
-      const res = await fetch("/api/mail-jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "followup", threadId: activeThreadId, days }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Follow-up mislukt");
-      setNotice(`Follow-up gezet op ${new Date(data.remindAt).toLocaleDateString("nl-NL")}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Follow-up mislukt");
-    }
-  }
-
-  async function scheduleReply(sendAtIso: string) {
-    if (!activeThreadId || !replyText.trim()) return;
-    setError(null);
-    try {
-      const res = await fetch("/api/mail-jobs", {
+      const data = await apiRequest<{ body: string }>("/api/ai/payment-reminder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "schedule",
-          kind: "reply",
-          threadId: activeThreadId,
-          text: replyText,
-          cc: replyCc || undefined,
-          bcc: replyBcc || undefined,
-          sendAt: sendAtIso,
+          clientName: item.clientName,
+          projectName: item.projectName,
+          lineName: item.name,
+          amount: item.amount,
+          daysOpen: item.daysOpen,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Plannen mislukt");
-      setReplyText("");
-      setPolishNotes(null);
-      setNotice(`Gepland voor ${new Date(data.sendAt).toLocaleString("nl-NL")}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Plannen mislukt");
-    }
-  }
-
-  async function loadTips() {
-    if (!activeThreadId) return;
-    setTipsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/ai/tips", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: activeThreadId }),
+      openCompose({
+        to: item.clientName.includes("@") ? item.clientName : "",
+        subject: `Betalingsherinnering: ${item.name}`,
+        body: data.body,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Tips mislukt");
-      setTips({ summary: data.summary ?? "", tips: data.tips ?? [], talkingPoints: data.talkingPoints ?? [] });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Tips mislukt");
+      mail.setError(err instanceof Error ? err.message : "Herinnering opstellen mislukt");
     } finally {
-      setTipsLoading(false);
+      projects.setRemindingId(null);
     }
   }
 
-  async function extractThreadTasks() {
-    if (!activeThreadId) return;
-    setTasksLoading(true);
-    setError(null);
-    setTasksEmptyNotice(null);
-    try {
-      const res = await fetch("/api/ai/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: activeThreadId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Taken extraheren mislukt");
-
-      if (data.doc) {
-        setTasksDoc(data.doc as ExtractedTasksDoc);
-        setNotice("Takenlijst opgeslagen als .md");
-      } else {
-        setTasksDoc(null);
-        setTasksEmptyNotice(
-          typeof data.notice === "string" ? data.notice : "Geen taken gevonden."
-        );
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Taken extraheren mislukt");
-    } finally {
-      setTasksLoading(false);
-    }
+  async function bookExpenseLine(projectId: number, input: LineInput) {
+    await projects.addLine(projectId, input);
+    setBookMessageId(null);
+    mail.setNotice("Uitgave geboekt");
   }
 
-  function openTasksPanel() {
-    setShowSettings(false);
-    setShowTasksLibrary(false);
-    setAiOpen(false);
-    setTasksOpen(true);
-    if (!tasksDoc && !tasksLoading) void extractThreadTasks();
+  async function openThread(threadId: string) {
+    reply.resetForNewThread();
+    ai.clearAiThreadContent();
+    await mail.openThread(threadId);
+  }
+  openThreadRef.current = openThread;
+
+  function closeThread() {
+    reply.resetForNewThread();
+    ai.resetAiPanels();
+    mail.closeThread();
   }
 
-  async function loadTasksLibrary(selectId?: string) {
-    setTasksLibraryLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/ai/tasks");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Takenlijsten ophalen mislukt");
-      const items = (data.items ?? []) as ExtractedTasksSummary[];
-      setTasksLibraryItems(items);
+  async function selectFolder(path: string) {
+    ai.setShowTasksLibrary(false);
+    tickets.resetTicketsPanel();
+    notes.resetNotesPanel();
+    projects.resetProjectsPanel();
+    outreach.resetOutreachPanel();
+    ai.closeAiPanels();
+    await mail.selectFolder(path);
+  }
 
-      const targetId = selectId ?? tasksLibraryActive?.id ?? items[0]?.id;
-      if (targetId) {
-        await selectTasksLibraryItem(targetId);
-      } else {
-        setTasksLibraryActive(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Takenlijsten ophalen mislukt");
-    } finally {
-      setTasksLibraryLoading(false);
+  async function openNotes() {
+    projects.setShowProjects(false);
+    outreach.setShowOutreach(false);
+    await notes.openNotes();
+  }
+
+  async function openTickets() {
+    projects.setShowProjects(false);
+    outreach.setShowOutreach(false);
+    await tickets.openTickets();
+  }
+
+  async function openOutreach() {
+    outreach.openOutreach();
+  }
+
+  async function openOutreachThread(messageId: string, replyDraft?: string) {
+    outreach.setShowOutreach(false);
+    reply.resetForNewThread();
+    ai.clearAiThreadContent();
+    await mail.openThreadByMessageId(messageId);
+    if (replyDraft) {
+      reply.setReplyText(replyDraft);
+      reply.openComposer();
     }
   }
 
   async function openTasksLibrary(selectId?: string) {
-    setShowSettings(false);
-    setTasksOpen(false);
-    setAiOpen(false);
-    setShowTasksLibrary(true);
-    await loadTasksLibrary(selectId);
+    projects.setShowProjects(false);
+    outreach.setShowOutreach(false);
+    await ai.openTasksLibrary(selectId);
   }
 
-  async function selectTasksLibraryItem(id: string) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/ai/tasks?id=${encodeURIComponent(id)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Takenlijst ophalen mislukt");
-      setTasksLibraryActive(data.doc as ExtractedTasksDoc);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Takenlijst ophalen mislukt");
-    }
+  async function openProjects() {
+    outreach.setShowOutreach(false);
+    await projects.openProjects();
   }
 
-  async function deleteTasksLibraryItem(id: string) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/ai/tasks?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Verwijderen mislukt");
-      if (tasksLibraryActive?.id === id) setTasksLibraryActive(null);
-      if (tasksDoc?.id === id) setTasksDoc(null);
-      await loadTasksLibrary();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Verwijderen mislukt");
-    }
-  }
-
-  async function loadTickets(selectId?: number) {
-    setTicketsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/tickets");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Tickets ophalen mislukt");
-      const items = (data.tickets ?? []) as TicketSummary[];
-      setTickets(items);
-
-      const targetId = selectId ?? activeTicket?.id ?? items[0]?.id;
-      if (targetId) {
-        await selectTicket(targetId);
-      } else {
-        setActiveTicket(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Tickets ophalen mislukt");
-    } finally {
-      setTicketsLoading(false);
-    }
-  }
-
-  async function openTickets() {
-    setShowSettings(false);
-    setShowTasksLibrary(false);
-    setShowTickets(true);
-    await loadTickets();
-  }
-
-  async function selectTicket(id: number) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/tickets/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Ticket ophalen mislukt");
-      setActiveTicket(data.ticket as TicketDetail);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ticket ophalen mislukt");
-    }
-  }
-
-  async function createTicket(title: string, description: string) {
-    setTicketSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, description }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Ticket aanmaken mislukt");
-      setNotice("Ticket aangemaakt");
-      await loadTickets(data.ticket?.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ticket aanmaken mislukt");
-    } finally {
-      setTicketSubmitting(false);
-    }
-  }
-
-  async function addTicketComment(ticketId: number, body: string) {
-    setCommentSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/tickets/${ticketId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Reactie plaatsen mislukt");
-      await selectTicket(ticketId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Reactie plaatsen mislukt");
-    } finally {
-      setCommentSubmitting(false);
-    }
-  }
-
-  async function loadNotes(selectId?: number) {
-    setNotesLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/notes");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Notities ophalen mislukt");
-      const items = (data.notes ?? []) as Note[];
-      setNotes(items);
-
-      const targetId = selectId ?? activeNote?.id ?? items[0]?.id;
-      const target = targetId ? items.find((n) => n.id === targetId) ?? null : null;
-      setActiveNote(target);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Notities ophalen mislukt");
-    } finally {
-      setNotesLoading(false);
-    }
-  }
-
-  async function openNotes() {
-    setShowSettings(false);
-    setShowTasksLibrary(false);
-    setShowTickets(false);
-    setShowNotes(true);
-    await loadNotes();
-  }
-
-  async function selectNote(id: number) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/notes/${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Notitie ophalen mislukt");
-      setActiveNote(data.note as Note);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Notitie ophalen mislukt");
-    }
-  }
-
-  async function createNote(title: string, body: string) {
-    setNoteSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Notitie aanmaken mislukt");
-      setNotice("Notitie aangemaakt");
-      await loadNotes(data.note?.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Notitie aanmaken mislukt");
-    } finally {
-      setNoteSubmitting(false);
-    }
-  }
-
-  async function updateNote(id: number, title: string, body: string) {
-    setNoteSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/notes/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Notitie bijwerken mislukt");
-      setNotice("Notitie opgeslagen");
-      await loadNotes(id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Notitie bijwerken mislukt");
-    } finally {
-      setNoteSubmitting(false);
-    }
-  }
-
-  async function deleteNote(id: number) {
-    setNoteSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Notitie verwijderen mislukt");
-      setNotice("Notitie verwijderd");
-      if (activeNote?.id === id) setActiveNote(null);
-      await loadNotes();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Notitie verwijderen mislukt");
-    } finally {
-      setNoteSubmitting(false);
-    }
-  }
-
-  async function folderAction(action: string, pathOrName: string, newPath?: string) {
-    setError(null);
-    try {
-      const res = await fetch("/api/folders/manage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, path: pathOrName, newPath }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Map-actie mislukt");
-      if (data.folders) setFolders(data.folders);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Map-actie mislukt");
-    }
+  function selectAdjacentThread(direction: 1 | -1) {
+    const nextId = mail.findAdjacentThreadId(direction);
+    if (nextId) void openThread(nextId);
   }
 
   async function threadAction(threadId: string, action: string, destination?: string) {
-    setError(null);
-    try {
-      const res = await fetch("/api/thread/actions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId, folder, action, destination }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Actie mislukt");
-      applyView(data);
-
-      if (action === "move" || action === "delete") {
-        setActiveThreadId(null);
-        setDetail(null);
-        setAiOpen(false);
-      } else if (action === "flag" || action === "unflag") {
-        await openThread(threadId);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Actie mislukt");
-    }
-  }
-
-  async function forwardMail(
-    to: string,
-    text: string,
-    attachments: File[],
-    cc?: string,
-    bcc?: string
-  ) {
-    if (!activeThreadId) return;
-    setSending(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        "/api/mail/forward",
-        {
-          method: "POST",
-          body: buildMailForm(
-            {
-              threadId: activeThreadId,
-              folder,
-              to,
-              text,
-              cc,
-              bcc,
-            },
-            attachments
-          ),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Doorsturen mislukt");
-      applyView(data);
-      setForwardOpen(false);
-      setNotice(`Doorgestuurd naar ${data.to}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Doorsturen mislukt");
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function draftFromPoint(point: string) {
-    if (!activeThreadId) return;
-    setDraftingPoint(point);
-    setError(null);
-    setPolishNotes(null);
-    try {
-      const res = await fetch("/api/ai/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ threadId: activeThreadId, intent: point }),
-      });
-      const result = await consumeAiStream(res, (body) => setReplyText(body));
-      setReplyText(result.body);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Concept mislukt");
-    } finally {
-      setDraftingPoint(null);
-    }
-  }
-
-  async function previewSort() {
-    if (!imapReady || !aiReady || sortingPreview) return;
-    setSortingPreview(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/sort/preview", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Sorteren mislukt");
-      setSortSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Sorteren mislukt");
-    } finally {
-      setSortingPreview(false);
-    }
-  }
-
-  async function applySort(items: SortConfirmItem[]) {
-    if (items.length === 0) {
-      setSortSuggestions(null);
-      return;
-    }
-    setSortingApply(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/sort/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Verplaatsen mislukt");
-      applyView(data);
-      setSortSuggestions(null);
-      setNotice(
-        typeof data.moved === "number"
-          ? `${data.moved} bericht${data.moved === 1 ? "" : "en"} verplaatst`
-          : "Berichten verplaatst"
-      );
-      if (folder !== inboxPath) {
-        await loadThreads(folder);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Verplaatsen mislukt");
-    } finally {
-      setSortingApply(false);
-    }
-  }
-
-  async function loadSearchJobs() {
-    try {
-      const res = await fetch("/api/ai/search");
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Zoekopdrachten ophalen mislukt");
-      setSearchJobs(Array.isArray(data.jobs) ? data.jobs : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Zoekopdrachten ophalen mislukt");
-    }
-  }
-
-  async function openSearch() {
-    setSearchOpen(true);
-    setError(null);
-    await loadSearchJobs();
-    void processJobs();
-  }
-
-  async function selectSearchJob(id: number) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/ai/search?id=${id}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Zoekopdracht ophalen mislukt");
-      setActiveSearchJob(data.job ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Zoekopdracht ophalen mislukt");
-    }
-  }
-
-  async function submitSearch(prompt: string) {
-    if (!aiReady || searchBusy) return;
-    setSearchBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/ai/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Zoeken mislukt");
-      setActiveSearchJob(data.job ?? null);
-      await loadSearchJobs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Zoeken mislukt");
-    } finally {
-      setSearchBusy(false);
-    }
-  }
-
-  async function deleteSearchJob(id: number) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/ai/search?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Verwijderen mislukt");
-      if (activeSearchJob?.id === id) setActiveSearchJob(null);
-      await loadSearchJobs();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Verwijderen mislukt");
+    const result = await mail.threadAction(threadId, action, destination);
+    if (result === "removed") {
+      ai.setAiOpen(false);
+    } else if (result === "flagged") {
+      await openThread(threadId);
     }
   }
 
   async function openSearchResult(messageId: string) {
-    setSearchOpen(false);
-    setShowSettings(false);
-    setDetailLoading(true);
-    setReplyText("");
-    setReplyCc("");
-    setReplyBcc("");
-    setReplyAttachments([]);
-    setReplyAttachmentError(null);
-    setPolishNotes(null);
-    setTips(null);
-    setTasksDoc(null);
-    setTasksEmptyNotice(null);
-    setError(null);
-    setSuggestedIntentId(null);
-    setSuggestedConfidence(null);
-    setSuggestedReason(null);
-    setPreviewOpen(false);
-
-    try {
-      const res = await fetch(
-        `/api/thread?messageId=${encodeURIComponent(messageId)}`
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Conversatie ophalen mislukt");
-
-      const targetFolder =
-        (typeof data.folder === "string" && data.folder) ||
-        data.thread?.folders?.[0] ||
-        null;
-
-      if (targetFolder && targetFolder !== folder) {
-        setFolder(targetFolder);
-        await loadThreads(targetFolder);
-      }
-
-      const threadId = data.thread?.id as string | undefined;
-      if (!threadId) throw new Error("Conversatie ophalen mislukt");
-
-      setActiveThreadId(threadId);
-      setDetail(data);
-      if (data.thread?.unread) {
-        void setSeen(threadId, true, targetFolder ?? undefined);
-      }
-      if (aiReady) void loadIntentSuggestion(threadId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Conversatie ophalen mislukt");
-      setDetail(null);
-      setActiveThreadId(null);
-    } finally {
-      setDetailLoading(false);
-    }
+    search.closeSearch();
+    mail.setShowSettings(false);
+    reply.resetForNewThread();
+    ai.clearAiThreadContent();
+    await mail.openThreadByMessageId(messageId);
   }
-
-  async function loadContacts(status?: ContactStatus | "all") {
-    const effective = status ?? contactStatusFilter;
-    setContactsLoading(true);
-    setError(null);
-    try {
-      const qs = effective !== "all" ? `?status=${effective}` : "";
-      const res = await fetch(`/api/ai/contacts${qs}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Contacten ophalen mislukt");
-      setContacts(Array.isArray(data.contacts) ? data.contacts : []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Contacten ophalen mislukt");
-    } finally {
-      setContactsLoading(false);
-    }
-  }
-
-  async function changeContactStatusFilter(status: ContactStatus | "all") {
-    setContactStatusFilter(status);
-    await loadContacts(status);
-  }
-
-  async function updateContactStatus(id: number, status: ContactStatus) {
-    setError(null);
-    try {
-      const res = await fetch(`/api/ai/contacts?id=${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Bijwerken mislukt");
-      setContacts((prev) => prev.map((c) => (c.id === id ? data.contact : c)));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Bijwerken mislukt");
-    }
-  }
-
-  // Poll active search job while semantic enrichment may still run.
-  useEffect(() => {
-    if (!searchOpen || !activeSearchJob) return;
-    const status = activeSearchJob.status;
-    if (status !== "keyword_done" && status !== "semantic_running") return;
-
-    const timer = setInterval(() => {
-      void (async () => {
-        try {
-          // Kick background semantic jobs, then refresh the active job.
-          const jobsRes = await fetch("/api/mail-jobs");
-          const jobsData = await jobsRes.json();
-          if (jobsRes.ok) applyEmbeddingProgress(jobsData);
-          const res = await fetch(`/api/ai/search?id=${activeSearchJob.id}`);
-          const data = await res.json();
-          if (!res.ok || !data.job) return;
-          setActiveSearchJob(data.job);
-          if (data.job.status === "done" || data.job.status === "failed") {
-            await loadSearchJobs();
-          }
-        } catch {
-          // Non-blocking
-        }
-      })();
-    }, SEARCH_POLL_MS);
-
-    return () => clearInterval(timer);
-  }, [searchOpen, activeSearchJob?.id, activeSearchJob?.status]);
 
   return {
-    folders,
-    folder,
-    threads,
-    syncedAt,
-    showSettings,
-    setShowSettings,
-    composeOpen,
-    setComposeOpen,
-    activeThreadId,
-    detail,
-    detailLoading,
-    filter,
-    setFilter,
-    search,
-    setSearch,
-    syncing,
-    error,
-    setError,
-    notice,
-    setNotice,
-    undoSeconds,
-    undoSend,
-    replyText,
-    setReplyText,
-    replyCc,
-    setReplyCc,
-    replyBcc,
-    setReplyBcc,
-    replyAttachments,
-    setReplyAttachments,
-    replyAttachmentError,
-    setReplyAttachmentError,
-    draftingIntent,
-    suggestedIntentId,
-    suggestedConfidence,
-    suggestedReason,
-    previewOpen,
-    setPreviewOpen,
-    previewLabel,
-    previewText,
-    setPreviewText,
-    previewStreaming,
-    keepEditingPreview,
-    confirmPreviewSend,
-    polishing,
-    sending,
-    polishNotes,
-    forwardOpen,
-    setForwardOpen,
-    aiOpen,
-    setAiOpen,
-    tips,
-    tipsLoading,
-    tasksOpen,
-    setTasksOpen,
-    tasksDoc,
-    tasksLoading,
-    tasksEmptyNotice,
-    showTasksLibrary,
-    setShowTasksLibrary,
-    tasksLibraryItems,
-    tasksLibraryActive,
-    tasksLibraryLoading,
-    draftingPoint,
-    sortSuggestions,
-    setSortSuggestions,
-    sortingPreview,
-    sortingApply,
-    searchOpen,
-    setSearchOpen,
-    searchBusy,
-    searchJobs,
-    activeSearchJob,
-    embeddingProgress,
-    contacts,
-    contactsLoading,
-    contactStatusFilter,
-    googleConnected,
-    googleConfigured,
-    inboxPath,
-    visibleThreads,
-    sync,
+    folders: mail.folders,
+    folder: mail.folder,
+    threads: mail.threads,
+    syncedAt: mail.syncedAt,
+    showSettings: mail.showSettings,
+    setShowSettings: mail.setShowSettings,
+    composeOpen: mail.composeOpen,
+    composePrefill,
+    openCompose,
+    closeCompose,
+    activeThreadId: mail.activeThreadId,
+    detail: mail.detail,
+    detailLoading: mail.detailLoading,
+    filter: mail.filter,
+    setFilter: mail.setFilter,
+    search: mail.search,
+    setSearch: mail.setSearch,
+    syncing: mail.syncing,
+    error: mail.error,
+    setError: mail.setError,
+    notice: mail.notice,
+    setNotice: mail.setNotice,
+    undoSeconds: reply.undoSeconds,
+    undoSend: reply.undoSend,
+    replyText: reply.replyText,
+    setReplyText: reply.setReplyText,
+    replyCc: reply.replyCc,
+    setReplyCc: reply.setReplyCc,
+    replyBcc: reply.replyBcc,
+    setReplyBcc: reply.setReplyBcc,
+    replyAttachments: reply.replyAttachments,
+    setReplyAttachments: reply.setReplyAttachments,
+    replyAttachmentError: reply.replyAttachmentError,
+    setReplyAttachmentError: reply.setReplyAttachmentError,
+    drafting: reply.drafting,
+    polishNotes: reply.polishNotes,
+    forwardOpen: reply.forwardOpen,
+    setForwardOpen: reply.setForwardOpen,
+    composerExpanded: reply.composerExpanded,
+    setComposerExpanded: reply.setComposerExpanded,
+    composerFocusNonce: reply.composerFocusNonce,
+    openComposer: reply.openComposer,
+    draftFromInstruction: reply.draftFromInstruction,
+    polishing: reply.polishing,
+    sending: reply.sending,
+    aiOpen: ai.aiOpen,
+    setAiOpen: ai.setAiOpen,
+    tips: ai.tips,
+    tipsLoading: ai.tipsLoading,
+    tasksOpen: ai.tasksOpen,
+    setTasksOpen: ai.setTasksOpen,
+    tasksDoc: ai.tasksDoc,
+    tasksLoading: ai.tasksLoading,
+    tasksEmptyNotice: ai.tasksEmptyNotice,
+    showTasksLibrary: ai.showTasksLibrary,
+    setShowTasksLibrary: ai.setShowTasksLibrary,
+    tasksLibraryItems: ai.tasksLibraryItems,
+    tasksLibraryActive: ai.tasksLibraryActive,
+    tasksLibraryLoading: ai.tasksLibraryLoading,
+    draftingPoint: reply.draftingPoint,
+    sortSuggestions: ai.sortSuggestions,
+    setSortSuggestions: ai.setSortSuggestions,
+    sortingPreview: ai.sortingPreview,
+    sortingApply: ai.sortingApply,
+    searchOpen: search.searchOpen,
+    setSearchOpen: search.setSearchOpen,
+    searchBusy: search.searchBusy,
+    searchJobs: search.searchJobs,
+    activeSearchJob: search.activeSearchJob,
+    embeddingProgress: mail.embeddingProgress,
+    contacts: search.contacts,
+    contactsLoading: search.contactsLoading,
+    contactStatusFilter: search.contactStatusFilter,
+    googleConnected: mail.googleConnected,
+    googleConfigured: mail.googleConfigured,
+    inboxPath: mail.inboxPath,
+    visibleThreads: mail.visibleThreads,
+    sync: mail.sync,
     selectFolder,
     openThread,
     selectAdjacentThread,
     closeThread,
-    setSeen,
-    quickReply,
-    polishReply,
-    sendReply,
-    snoozeThread,
-    setFollowUp,
-    scheduleReply,
-    loadTips,
-    extractThreadTasks,
-    openTasksPanel,
+    setSeen: mail.setSeen,
+    polishReply: reply.polishReply,
+    sendReply: reply.sendReply,
+    snoozeThread: reply.snoozeThread,
+    setFollowUp: reply.setFollowUp,
+    scheduleReply: reply.scheduleReply,
+    loadTips: ai.loadTips,
+    extractThreadTasks: ai.extractThreadTasks,
+    openTasksPanel: ai.openTasksPanel,
     openTasksLibrary,
-    selectTasksLibraryItem,
-    deleteTasksLibraryItem,
-    folderAction,
+    selectTasksLibraryItem: ai.selectTasksLibraryItem,
+    deleteTasksLibraryItem: ai.deleteTasksLibraryItem,
+    folderAction: mail.folderAction,
     threadAction,
-    forwardMail,
-    draftFromPoint,
-    previewSort,
-    applySort,
-    openSearch,
-    selectSearchJob,
-    submitSearch,
-    deleteSearchJob,
+    forwardMail: reply.forwardMail,
+    draftFromPoint: reply.draftFromPoint,
+    previewSort: ai.previewSort,
+    applySort: ai.applySort,
+    openSearch: search.openSearch,
+    selectSearchJob: search.selectSearchJob,
+    submitSearch: search.submitSearch,
+    deleteSearchJob: search.deleteSearchJob,
     openSearchResult,
-    loadContacts,
-    changeContactStatusFilter,
-    updateContactStatus,
-    setGoogleConnected,
-    setGoogleConfigured,
-    showTickets,
-    setShowTickets,
-    tickets,
-    activeTicket,
-    ticketsLoading,
-    ticketSubmitting,
-    commentSubmitting,
+    loadContacts: search.loadContacts,
+    changeContactStatusFilter: search.changeContactStatusFilter,
+    updateContactStatus: search.updateContactStatus,
+    setGoogleConnected: mail.setGoogleConnected,
+    setGoogleConfigured: mail.setGoogleConfigured,
+    showTickets: tickets.showTickets,
+    setShowTickets: tickets.setShowTickets,
+    tickets: tickets.tickets,
+    activeTicket: tickets.activeTicket,
+    ticketsLoading: tickets.ticketsLoading,
+    ticketSubmitting: tickets.ticketSubmitting,
+    commentSubmitting: tickets.commentSubmitting,
     openTickets,
-    selectTicket,
-    createTicket,
-    addTicketComment,
-    showNotes,
-    setShowNotes,
-    notes,
-    activeNote,
-    notesLoading,
-    noteSubmitting,
+    selectTicket: tickets.selectTicket,
+    createTicket: tickets.createTicket,
+    addTicketComment: tickets.addTicketComment,
+    showNotes: notes.showNotes,
+    setShowNotes: notes.setShowNotes,
+    notes: notes.notes,
+    activeNote: notes.activeNote,
+    notesLoading: notes.notesLoading,
+    noteSubmitting: notes.noteSubmitting,
     openNotes,
-    selectNote,
-    createNote,
-    updateNote,
-    deleteNote,
+    selectNote: notes.selectNote,
+    createNote: notes.createNote,
+    updateNote: notes.updateNote,
+    deleteNote: notes.deleteNote,
+    showProjects: projects.showProjects,
+    setShowProjects: projects.setShowProjects,
+    projectsPeriod: projects.period,
+    projectsOverview: projects.overview,
+    activeProject: projects.active,
+    projectsLoading: projects.loading,
+    projectsSubmitting: projects.submitting,
+    openProjects,
+    changeProjectsPeriod: projects.changePeriod,
+    selectProject: projects.selectProject,
+    createProject: projects.createProject,
+    updateProject: projects.updateProject,
+    deleteProject: projects.removeProject,
+    addProjectLine: projects.addLine,
+    updateProjectLine: projects.updateLine,
+    deleteProjectLine: projects.removeLine,
+    deleteProjectLines: projects.removeLines,
+    setProjectLinePaidMonth: projects.setLinePaidMonth,
+    overdueCount: projects.overdueCount,
+    remindingId: projects.remindingId,
+    remindOpenItem,
+    loadProjects: projects.loadProjects,
+    bookMessageId,
+    setBookMessageId,
+    bookExpenseLine,
+    showOutreach: outreach.showOutreach,
+    setShowOutreach: outreach.setShowOutreach,
+    openOutreach,
+    openOutreachThread,
   };
 }

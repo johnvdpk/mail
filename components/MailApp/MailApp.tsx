@@ -1,27 +1,29 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import type { EmailConfig } from "@/lib/email-config-shared";
-import { repliesForContact } from "@/lib/email-config-shared";
-import type { FolderSummary, Thread } from "@/lib/types";
-import { ErrorBoundary } from "@/components/ErrorBoundary/ErrorBoundary";
-import { AiDrawer } from "@/components/AiDrawer/AiDrawer";
-import { ComposeDialog } from "@/components/ComposeDialog/ComposeDialog";
-import { ForwardDialog } from "@/components/ComposeDialog/ForwardDialog";
-import { Composer } from "@/components/Composer/Composer";
-import { FolderRail } from "@/components/FolderRail/FolderRail";
-import { MailConfigEditor } from "@/components/MailConfigEditor/MailConfigEditor";
-import { ReplyPreviewDialog } from "@/components/ReplyPreviewDialog/ReplyPreviewDialog";
-import { SortReview } from "@/components/SortReview/SortReview";
-import { MailSearch } from "@/components/MailSearch/MailSearch";
-import { TasksLibrary } from "@/components/TasksLibrary/TasksLibrary";
-import { TasksPanel } from "@/components/TasksPanel/TasksPanel";
-import { TicketsPanel } from "@/components/TicketsPanel/TicketsPanel";
-import { NotesPanel } from "@/components/NotesPanel/NotesPanel";
-import { ThreadList } from "@/components/ThreadList/ThreadList";
-import { ThreadView } from "@/components/ThreadView/ThreadView";
+import { useEffect, type CSSProperties } from "react";
+import type { EmailConfig } from "@/lib/config/email-config-shared";
+import type { FolderSummary, Thread } from "@/lib/shared/types";
+import { useResizablePanel } from "@/lib/shared/use-resizable-panel";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary/ErrorBoundary";
+import { AiDrawer } from "@/components/shared/AiDrawer/AiDrawer";
+import { Composer } from "@/components/mail/Composer/Composer";
+import { FolderRail } from "@/components/mail/FolderRail/FolderRail";
+import { MailConfigEditor } from "@/components/settings/MailConfigEditor";
+import { TasksLibrary } from "@/components/tasks/TasksLibrary/TasksLibrary";
+import { TasksPanel } from "@/components/tasks/TasksPanel/TasksPanel";
+import { TicketsPanel } from "@/components/tickets/TicketsPanel/TicketsPanel";
+import { NotesPanel } from "@/components/notes/NotesPanel/NotesPanel";
+import { ProjectsPanel } from "@/components/projects/ProjectsPanel/ProjectsPanel";
+import { OutreachPanel } from "@/components/outreach/OutreachPanel/OutreachPanel";
+import { ThreadList } from "@/components/mail/ThreadList/ThreadList";
+import { ThreadView } from "@/components/mail/ThreadView/ThreadView";
+import { MailAppOverlays } from "./MailAppOverlays";
 import { useMailAppState } from "./useMailAppState";
+import { replyAllCc } from "@/lib/mail/reply-all-cc";
 import styles from "./MailApp.module.css";
+
+const LIST_WIDTH = { defaultSize: 280, min: 200, max: 480 } as const;
+const COMPOSER_HEIGHT = { defaultSize: 260, min: 140, max: 520 } as const;
 
 type Props = {
   account: string;
@@ -55,20 +57,20 @@ export function MailApp({
     aiReady
   );
 
-  const counterpartEmail = useMemo(() => {
-    if (!state.detail) return null;
-    const inbound = [...state.detail.messages].reverse().find((m) => !m.outbound);
-    if (inbound?.from?.email) return inbound.from.email;
-    const other = state.detail.thread.participants.find(
-      (p) => p.email.toLowerCase() !== account.toLowerCase()
-    );
-    return other?.email ?? null;
-  }, [state.detail, account]);
+  const replyAllCcValue = state.detail ? replyAllCc(state.detail, account) : "";
+  const canReplyAll = Boolean(replyAllCcValue);
 
-  const quickReplies = useMemo(
-    () => repliesForContact(emailConfig, counterpartEmail),
-    [emailConfig, counterpartEmail]
-  );
+  const listPanel = useResizablePanel({
+    storageKey: "mail-list-width",
+    ...LIST_WIDTH,
+  });
+
+  const composerPanel = useResizablePanel({
+    storageKey: "mail-composer-height",
+    axis: "y",
+    inverted: true,
+    ...COMPOSER_HEIGHT,
+  });
 
   useEffect(() => {
     const dialogOpen =
@@ -76,9 +78,10 @@ export function MailApp({
       state.showTasksLibrary ||
       state.showTickets ||
       state.showNotes ||
+      state.showProjects ||
+      state.showOutreach ||
       state.composeOpen ||
       state.forwardOpen ||
-      state.previewOpen ||
       state.searchOpen ||
       Boolean(state.sortSuggestions);
 
@@ -110,9 +113,10 @@ export function MailApp({
     state.showTasksLibrary,
     state.showTickets,
     state.showNotes,
+    state.showProjects,
+    state.showOutreach,
     state.composeOpen,
     state.forwardOpen,
-    state.previewOpen,
     state.searchOpen,
     state.sortSuggestions,
     state.selectAdjacentThread,
@@ -120,19 +124,27 @@ export function MailApp({
   ]);
 
   const mobileView =
-    state.showSettings || state.showTasksLibrary
+    state.showSettings ||
+    state.showTasksLibrary ||
+    state.showTickets ||
+    state.showNotes ||
+    state.showProjects ||
+    state.showOutreach
       ? "settings"
       : state.activeThreadId
         ? "thread"
         : "list";
 
-  const listCollapsed = Boolean(state.activeThreadId);
-
   return (
     <div
       className={styles.shell}
       data-mobile-view={mobileView}
-      data-list-collapsed={listCollapsed ? "true" : "false"}
+      style={
+        {
+          "--list-w": `${listPanel.size}px`,
+          "--composer-h": `${composerPanel.size}px`,
+        } as CSSProperties
+      }
     >
       <div className={styles.navCol}>
         <FolderRail
@@ -143,17 +155,21 @@ export function MailApp({
           tasksActive={state.showTasksLibrary}
           ticketsActive={state.showTickets}
           notesActive={state.showNotes}
+          projectsActive={state.showProjects}
+          overdueCount={state.overdueCount}
+          outreachActive={state.showOutreach}
           onSelectFolder={(path) => void state.selectFolder(path)}
-          onCompose={() => state.setComposeOpen(true)}
+          onCompose={() => state.openCompose()}
           onOpenSettings={() => {
-            state.setShowTasksLibrary(false);
-            state.setShowTickets(false);
-            state.setShowNotes(false);
-            state.setShowSettings(true);
+            state.setShowTasksLibrary(false); state.setShowTickets(false);
+            state.setShowNotes(false); state.setShowProjects(false);
+            state.setShowOutreach(false); state.setShowSettings(true);
           }}
           onOpenTasks={() => void state.openTasksLibrary()}
           onOpenTickets={() => void state.openTickets()}
           onOpenNotes={() => void state.openNotes()}
+          onOpenProjects={() => void state.openProjects()}
+          onOpenOutreach={() => state.openOutreach()}
           onCreateFolder={(name) => void state.folderAction("create", name)}
           onRenameFolder={(path, newName) => void state.folderAction("rename", path, newName)}
           onDeleteFolder={(path) => void state.folderAction("delete", path)}
@@ -226,6 +242,44 @@ export function MailApp({
             />
           </div>
         </ErrorBoundary>
+      ) : state.showProjects ? (
+        <ErrorBoundary title="Financiële gegevens konden niet worden geladen">
+          <div className={styles.settings}>
+            <ProjectsPanel
+              overview={state.projectsOverview}
+              active={state.activeProject}
+              period={state.projectsPeriod}
+              loading={state.projectsLoading}
+              submitting={state.projectsSubmitting}
+              error={state.error}
+              onChangePeriod={(period) => void state.changeProjectsPeriod(period)}
+              onSelect={(id) => void state.selectProject(id)}
+              onCreate={(input) => void state.createProject(input)}
+              onUpdate={(id, input) => void state.updateProject(id, input)}
+              onDelete={(id) => void state.deleteProject(id)}
+              onAddLine={(id, input) => void state.addProjectLine(id, input)}
+              onUpdateLine={(id, lineId, input) => void state.updateProjectLine(id, lineId, input)}
+              onDeleteLine={(id, lineId) => void state.deleteProjectLine(id, lineId)}
+              onSetLinePaidMonth={(id, lineId, month, paid) =>
+                void state.setProjectLinePaidMonth(id, lineId, month, paid)
+              }
+              onDeleteLines={(items) => void state.deleteProjectLines(items)}
+              onImported={() => void state.loadProjects()}
+              onClose={() => state.setShowProjects(false)}
+            />
+          </div>
+        </ErrorBoundary>
+      ) : state.showOutreach ? (
+        <ErrorBoundary title="Outreach kon niet worden geladen">
+          <div className={styles.settings}>
+            <OutreachPanel
+              aiReady={aiReady}
+              smtpReady={smtpReady}
+              onClose={() => state.setShowOutreach(false)}
+              onOpenThread={(id, draft) => void state.openOutreachThread(id, draft)}
+            />
+          </div>
+        </ErrorBoundary>
       ) : (
         <ErrorBoundary title="De mailbox kon niet worden geladen">
           <>
@@ -241,15 +295,30 @@ export function MailApp({
                 sortAvailable={imapReady && aiReady}
                 sorting={state.sortingPreview}
                 searchAvailable={aiReady}
-                collapsed={listCollapsed}
                 onSelect={(id) => void state.openThread(id)}
                 onFilterChange={state.setFilter}
                 onSearchChange={state.setSearch}
-                onSync={() => void state.sync(state.folder)}
+                onSync={() => void state.sync(state.folder, { refreshFolders: true })}
                 onSortInbox={() => void state.previewSort()}
                 onOpenMailSearch={() => void state.openSearch()}
               />
             </div>
+            <div
+              className={`${styles.resizeHandle} ${styles.resizeHandleVertical}`}
+              style={{ left: "calc(var(--nav-w) + var(--list-w))", transform: "translateX(-50%)" }}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Breedte berichtenlijst"
+              aria-valuenow={listPanel.size}
+              aria-valuemin={LIST_WIDTH.min}
+              aria-valuemax={LIST_WIDTH.max}
+              tabIndex={0}
+              onPointerDown={listPanel.onPointerDown}
+              onPointerMove={listPanel.onPointerMove}
+              onPointerUp={listPanel.onPointerUp}
+              onPointerCancel={listPanel.onPointerUp}
+              onKeyDown={listPanel.onKeyDown}
+            />
 
           <main className={styles.main}>
             {(state.error || state.notice || state.undoSeconds !== null) && (
@@ -272,23 +341,12 @@ export function MailApp({
               account={account}
               folders={state.folders}
               loading={state.detailLoading}
-              aiOpen={state.aiOpen}
-              tasksOpen={state.tasksOpen}
+              canReplyAll={canReplyAll}
               googleConnected={state.googleConnected}
               googleConfigured={state.googleConfigured}
               onBack={state.closeThread}
-              onToggleAi={() => {
-                const next = !state.aiOpen;
-                state.setAiOpen(next);
-                if (next) state.setTasksOpen(false);
-              }}
-              onToggleTasks={() => {
-                if (state.tasksOpen) {
-                  state.setTasksOpen(false);
-                } else {
-                  state.openTasksPanel();
-                }
-              }}
+              onReply={() => { state.setReplyCc(""); state.openComposer(); }}
+              onReplyAll={() => { state.setReplyCc(replyAllCcValue); state.openComposer(); }}
               onMarkUnread={() => {
                 if (state.activeThreadId) void state.setSeen(state.activeThreadId, false);
               }}
@@ -304,38 +362,54 @@ export function MailApp({
               onForward={() => state.setForwardOpen(true)}
               onSnooze={(option) => void state.snoozeThread(option)}
               onFollowUp={(days) => void state.setFollowUp(days)}
+              onBookExpense={(messageId) => state.setBookMessageId(messageId)}
             />
 
             {state.detail && (
-              <Composer
-                value={state.replyText}
-                cc={state.replyCc}
-                bcc={state.replyBcc}
-                quickReplies={quickReplies}
-                draftingIntent={state.draftingIntent}
-                suggestedIntentId={state.suggestedIntentId}
-                suggestedConfidence={state.suggestedConfidence}
-                suggestedReason={state.suggestedReason}
-                polishing={state.polishing}
-                sending={state.sending}
-                notes={state.polishNotes}
-                aiAvailable={aiReady}
-                sendAvailable={smtpReady}
-                onChange={state.setReplyText}
-                onCcChange={state.setReplyCc}
-                onBccChange={state.setReplyBcc}
-                attachments={state.replyAttachments}
-                attachmentError={state.replyAttachmentError}
-                onAttachmentsChange={state.setReplyAttachments}
-                onAttachmentError={state.setReplyAttachmentError}
-                onQuickReply={(intent) => {
-                  const label = quickReplies.find((r) => r.id === intent)?.label;
-                  void state.quickReply(intent, label);
-                }}
-                onPolish={() => void state.polishReply()}
-                onSend={() => void state.sendReply()}
-                onScheduleSend={(sendAt) => void state.scheduleReply(sendAt)}
-              />
+              <>
+                <div
+                  className={`${styles.resizeHandle} ${styles.resizeHandleHorizontal}`}
+                  role="separator"
+                  aria-orientation="horizontal"
+                  aria-label="Hoogte antwoordveld"
+                  aria-valuenow={composerPanel.size}
+                  aria-valuemin={COMPOSER_HEIGHT.min}
+                  aria-valuemax={COMPOSER_HEIGHT.max}
+                  tabIndex={0}
+                  onPointerDown={composerPanel.onPointerDown}
+                  onPointerMove={composerPanel.onPointerMove}
+                  onPointerUp={composerPanel.onPointerUp}
+                  onPointerCancel={composerPanel.onPointerUp}
+                  onKeyDown={composerPanel.onKeyDown}
+                />
+                <Composer
+                  value={state.replyText}
+                  cc={state.replyCc}
+                  bcc={state.replyBcc}
+                  expanded={state.composerExpanded}
+                  focusNonce={state.composerFocusNonce}
+                  drafting={state.drafting}
+                  polishing={state.polishing}
+                  sending={state.sending}
+                  notes={state.polishNotes}
+                  aiAvailable={aiReady}
+                  sendAvailable={smtpReady}
+                  onExpandedChange={state.setComposerExpanded}
+                  onChange={state.setReplyText}
+                  onCcChange={state.setReplyCc}
+                  onBccChange={state.setReplyBcc}
+                  attachments={state.replyAttachments}
+                  attachmentError={state.replyAttachmentError}
+                  onAttachmentsChange={state.setReplyAttachments}
+                  onAttachmentError={state.setReplyAttachmentError}
+                  onDraftFromInstruction={(instruction) => {
+                    void state.draftFromInstruction(instruction);
+                  }}
+                  onPolish={() => void state.polishReply()}
+                  onSend={() => void state.sendReply()}
+                  onScheduleSend={(sendAt) => void state.scheduleReply(sendAt)}
+                />
+              </>
             )}
           </main>
 
@@ -359,6 +433,11 @@ export function MailApp({
               emptyNotice={state.tasksEmptyNotice}
               onExtract={() => void state.extractThreadTasks()}
               onOpenLibrary={() => void state.openTasksLibrary(state.tasksDoc?.id)}
+              onDelete={
+                state.tasksDoc
+                  ? () => void state.deleteTasksLibraryItem(state.tasksDoc!.id)
+                  : undefined
+              }
               onClose={() => state.setTasksOpen(false)}
             />
           )}
@@ -366,75 +445,7 @@ export function MailApp({
         </ErrorBoundary>
       )}
 
-      <ErrorBoundary title="Dialoog kon niet worden geladen">
-        {state.previewOpen && (
-        <ReplyPreviewDialog
-          label={state.previewLabel}
-          value={state.previewText}
-          streaming={state.previewStreaming}
-          sending={state.sending}
-          sendAvailable={smtpReady}
-          onChange={state.setPreviewText}
-          onConfirmSend={() => void state.confirmPreviewSend()}
-          onKeepEditing={state.keepEditingPreview}
-          onClose={() => state.setPreviewOpen(false)}
-        />
-      )}
-
-      {state.sortSuggestions && (
-        <SortReview
-          suggestions={state.sortSuggestions}
-          busy={state.sortingApply}
-          onCancel={() => state.setSortSuggestions(null)}
-          onConfirm={(items) => void state.applySort(items)}
-        />
-      )}
-
-      {state.searchOpen && (
-        <MailSearch
-          busy={state.searchBusy}
-          jobs={state.searchJobs}
-          activeJob={state.activeSearchJob}
-          embeddingProgress={state.embeddingProgress}
-          contacts={state.contacts}
-          contactsLoading={state.contactsLoading}
-          contactStatusFilter={state.contactStatusFilter}
-          onClose={() => state.setSearchOpen(false)}
-          onSubmit={(prompt) => void state.submitSearch(prompt)}
-          onSelectJob={(id) => void state.selectSearchJob(id)}
-          onDeleteJob={(id) => void state.deleteSearchJob(id)}
-          onOpenResult={(messageId) => void state.openSearchResult(messageId)}
-          onLoadContacts={() => void state.loadContacts()}
-          onContactStatusFilterChange={(status) => void state.changeContactStatusFilter(status)}
-          onUpdateContactStatus={(id, status) => void state.updateContactStatus(id, status)}
-        />
-      )}
-
-      {state.forwardOpen && state.detail && (
-        <ForwardDialog
-          subject={state.detail.thread.subject}
-          sending={state.sending}
-          sendAvailable={smtpReady}
-          onClose={() => state.setForwardOpen(false)}
-          onSend={(to, text, attachments, cc, bcc) =>
-            void state.forwardMail(to, text, attachments, cc, bcc)
-          }
-        />
-      )}
-
-      {state.composeOpen && (
-        <ComposeDialog
-          aiAvailable={aiReady}
-          sendAvailable={smtpReady}
-          onClose={() => state.setComposeOpen(false)}
-          onSent={(message) => {
-            state.setComposeOpen(false);
-            state.setNotice(message);
-            void state.sync(state.folder);
-          }}
-        />
-      )}
-      </ErrorBoundary>
+      <MailAppOverlays state={state} aiReady={aiReady} smtpReady={smtpReady} />
     </div>
   );
 }
