@@ -1,10 +1,10 @@
 /**
  * Sync the inbox once and print the result — run: npm run test:imap
  */
-import { getFolders, getInboxPath } from "../lib/folders.js";
-import { loadEnvFromFile } from "../lib/env.js";
-import { syncFolder } from "../lib/sync.js";
-import { getFolderView } from "../lib/mailbox-service.js";
+import { getFolders, getInboxPath } from "../lib/mail/folders.js";
+import { loadEnvFromFile } from "../lib/config/env.js";
+import { syncFolder } from "../lib/mail/sync.js";
+import { getFolderView } from "../lib/mail/mailbox-service.js";
 
 loadEnvFromFile();
 

@@ -1,13 +1,13 @@
-import { getSession } from "@/lib/auth";
-import { readEmailConfig } from "@/lib/email-config";
-import { env } from "@/lib/env";
-import { isImapConfigured } from "@/lib/imap";
-import { isSmtpConfigured } from "@/lib/mail";
-import { activeAccountEnv, currentMailAccount, refreshActiveMailAccount } from "@/lib/mail-accounts";
-import { getFolderView } from "@/lib/mailbox-service";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { getSession } from "@/lib/auth/auth";
+import { readEmailConfig } from "@/lib/config/email-config";
+import { env } from "@/lib/config/env";
+import { isImapConfigured } from "@/lib/mail/imap";
+import { isSmtpConfigured } from "@/lib/mail/mail";
+import { activeAccountEnv, currentMailAccount, refreshActiveMailAccount } from "@/lib/config/mail-accounts";
+import { getFolderView } from "@/lib/mail/mailbox-service";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
 import { MailApp } from "@/components/MailApp/MailApp";
-import AuthGate from "@/components/AuthGate/AuthGate";
+import AuthGate from "@/components/auth/AuthGate/AuthGate";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export default async function HomePage() {
     "onbekend";
 
   const view = imapReady
-    ? await getFolderView(null).catch(() => null)
+    ? await getFolderView(null, { refreshFolders: true }).catch(() => null)
     : null;
 
   return (

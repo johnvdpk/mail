@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
 import {
   MAIL_ACCOUNTS,
@@ -7,7 +7,7 @@ import {
   refreshActiveMailAccount,
   setActiveMailAccount,
   type MailAccountId,
-} from "@/lib/mail-accounts";
+} from "@/lib/config/mail-accounts";
 
 export const dynamic = "force-dynamic";
 

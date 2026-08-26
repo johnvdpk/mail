@@ -1,7 +1,7 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { isImapConfigured } from "@/lib/imap";
-import { getFolderSummaries } from "@/lib/mailbox-service";
+import { isImapConfigured } from "@/lib/mail/imap";
+import { getFolderSummaries } from "@/lib/mail/mailbox-service";
 
 export const dynamic = "force-dynamic";
 

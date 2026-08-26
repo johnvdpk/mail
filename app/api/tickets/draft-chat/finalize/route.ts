@@ -1,5 +1,5 @@
-import { requireAuth } from "@/lib/auth";
-import { chatCompletion, getLightModel } from "@/lib/openrouter";
+import { requireAuth } from "@/lib/auth/auth";
+import { chatCompletion, getLightModel } from "@/lib/ai/openrouter";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

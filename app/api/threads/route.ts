@@ -1,6 +1,6 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { getFolderView } from "@/lib/mailbox-service";
+import { getFolderView } from "@/lib/mail/mailbox-service";
 
 export const dynamic = "force-dynamic";
 

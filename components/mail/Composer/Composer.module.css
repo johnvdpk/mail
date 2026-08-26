@@ -1,0 +1,240 @@
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.6rem 0.85rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  flex: 1 1 var(--composer-h, 260px);
+  min-height: 0;
+  overflow: hidden;
+  animation: fade-up var(--dur) var(--ease);
+}
+
+.expandToggle {
+  display: none;
+}
+
+.fields {
+  display: contents;
+}
+
+.commandBar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.commandLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.commandInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.25rem 0;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.commandInput:focus {
+  outline: none;
+}
+
+.ccRow {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ccToggle {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.4rem;
+}
+
+.ccToggle:hover:not(:disabled) {
+  color: var(--text);
+  border-color: transparent;
+}
+
+.ccInput {
+  flex: 1;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.formatBar {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.formatBtn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  min-width: 2rem;
+  text-align: center;
+}
+
+.formatBtn:hover:not(:disabled) {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: transparent;
+}
+
+.notes {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.hint {
+  margin-right: auto;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.send {
+  background: var(--cta);
+  border-color: var(--cta);
+  color: var(--cta-text);
+  font-weight: 600;
+}
+
+.send:hover:not(:disabled) {
+  background: var(--cta-hover);
+  border-color: var(--cta-hover);
+  color: var(--cta-text);
+}
+
+.scheduleWrap {
+  position: relative;
+}
+
+.scheduleMenu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 10;
+  margin: 0 0 0.3rem;
+  padding: 0.3rem 0;
+  list-style: none;
+  min-width: 150px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.scheduleMenu button {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.8rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.scheduleMenu button:hover {
+  background: var(--surface2);
+}
+
+.textareaStreaming {
+  opacity: 0.92;
+  caret-color: var(--accent);
+}
+
+.textareaWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-radius: var(--radius-sm);
+}
+
+.textareaWrap textarea {
+  flex: 1;
+  min-height: 4rem;
+  height: 100%;
+  resize: none;
+  overflow-y: auto;
+}
+
+.textareaMarked {
+  background: transparent;
+}
+
+.textareaMic {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+}
+
+@media (max-width: 720px) {
+  .composer {
+    padding: 0.65rem 0.75rem 0.85rem;
+    gap: 0.45rem;
+  }
+
+  .expandToggle {
+    display: block;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    background: var(--surface2);
+    border-color: var(--border);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .fields {
+    display: none;
+  }
+
+  .composer[data-expanded="true"] .fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .hint {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+
+  .actions > button,
+  .scheduleWrap {
+    flex: 1 1 auto;
+  }
+}

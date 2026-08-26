@@ -1,10 +1,10 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import {
   analyzeWritingStyle,
   getWritingProfile,
   refreshIfDue,
   setSuggestionStatus,
-} from "@/lib/learn-tone";
+} from "@/lib/ai/learn-tone";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

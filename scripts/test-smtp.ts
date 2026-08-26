@@ -2,8 +2,8 @@
  * Test SMTP login — run: npm run test:smtp
  * Does NOT print your password, only whether auth succeeds.
  */
-import { env, loadEnvFromFile } from "../lib/env.js";
-import { verifySmtpConnection, isSmtpConfigured } from "../lib/mail.js";
+import { env, loadEnvFromFile } from "../lib/config/env.js";
+import { verifySmtpConnection, isSmtpConfigured } from "../lib/mail/mail.js";
 
 loadEnvFromFile();
 

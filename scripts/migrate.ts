@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
-import { loadEnvFromFile } from "../lib/env";
+import { loadEnvFromFile } from "../lib/config/env";
 
 loadEnvFromFile();
 

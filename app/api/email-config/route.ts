@@ -1,6 +1,6 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
-import { readEmailConfig, writeEmailConfig, type EmailConfig } from "@/lib/email-config";
+import { readEmailConfig, writeEmailConfig, type EmailConfig } from "@/lib/config/email-config";
 
 export const dynamic = "force-dynamic";
 

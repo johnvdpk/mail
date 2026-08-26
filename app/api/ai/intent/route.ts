@@ -1,7 +1,7 @@
-import { requireAuth } from "@/lib/auth";
-import { detectBestIntent } from "@/lib/detect-intent";
-import { getThreadDetail, toThreadContext } from "@/lib/mailbox-service";
-import { isOpenRouterConfigured } from "@/lib/openrouter";
+import { requireAuth } from "@/lib/auth/auth";
+import { detectBestIntent } from "@/lib/ai/detect-intent";
+import { getThreadDetail, toThreadContext } from "@/lib/mail/mailbox-service";
+import { isOpenRouterConfigured } from "@/lib/ai/openrouter";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

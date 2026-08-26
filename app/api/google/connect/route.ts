@@ -1,7 +1,7 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
-import { getGoogleAuthUrl, isGoogleConfigured } from "@/lib/google-calendar";
+import { getGoogleAuthUrl, isGoogleConfigured } from "@/lib/calendar/google-calendar";
 
 export const dynamic = "force-dynamic";
 

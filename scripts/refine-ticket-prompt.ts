@@ -7,7 +7,7 @@
 // Output: de herschreven omschrijving op stdout (of, bij ontbrekende
 // configuratie of een fout, de originele omschrijving ongewijzigd).
 
-import { chatCompletion, isOpenRouterConfigured } from "../lib/openrouter";
+import { chatCompletion, isOpenRouterConfigured } from "../lib/ai/openrouter";
 
 async function readStdin(): Promise<string> {
   const chunks: Buffer[] = [];

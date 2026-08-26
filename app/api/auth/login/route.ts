@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { login, setSessionCookie } from "@/lib/auth";
-import { clearLoginAttempts, isLoginRateLimited, registerFailedLogin } from "@/lib/login-rate-limit";
+import { login, setSessionCookie } from "@/lib/auth/auth";
+import { clearLoginAttempts, isLoginRateLimited, registerFailedLogin } from "@/lib/auth/login-rate-limit";
 
 function clientKey(req: NextRequest): string {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";

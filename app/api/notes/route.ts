@@ -1,5 +1,5 @@
-import { requireAuth } from "@/lib/auth";
-import { createNote, listNotes } from "@/lib/notes";
+import { requireAuth } from "@/lib/auth/auth";
+import { createNote, listNotes } from "@/lib/notes/notes";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

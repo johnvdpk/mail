@@ -1,5 +1,5 @@
-import { requireAuth } from "@/lib/auth";
-import { createTicket, listTickets } from "@/lib/tickets";
+import { requireAuth } from "@/lib/auth/auth";
+import { createTicket, listTickets } from "@/lib/tickets/tickets";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

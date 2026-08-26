@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logout, SESSION_COOKIE } from "@/lib/auth";
+import { logout, SESSION_COOKIE } from "@/lib/auth/auth";
 
 export async function POST() {
   await logout();
