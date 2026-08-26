@@ -19,8 +19,6 @@ type Props = {
   sorting?: boolean;
   /** Show Leadradar (lead search) button when OpenRouter is ready. */
   searchAvailable?: boolean;
-  /** Collapse to an icon-only rail, e.g. while an email is open, to give the reading pane more room. */
-  collapsed?: boolean;
   onSelect: (threadId: string) => void;
   onFilterChange: (filter: ThreadFilter) => void;
   onSearchChange: (value: string) => void;
@@ -46,7 +44,6 @@ export function ThreadList({
   sortAvailable,
   sorting,
   searchAvailable,
-  collapsed,
   onSelect,
   onFilterChange,
   onSearchChange,
@@ -54,33 +51,6 @@ export function ThreadList({
   onSortInbox,
   onOpenMailSearch,
 }: Props) {
-  if (collapsed) {
-    return (
-      <section className={styles.pane} data-collapsed="true" aria-label="Berichten (ingeklapt)">
-        <ul className={styles.collapsedList}>
-          {threads.map((thread) => (
-            <li key={thread.id}>
-              <button
-                type="button"
-                className={[
-                  styles.collapsedItem,
-                  thread.id === activeThreadId ? styles.itemActive : "",
-                  thread.unread ? styles.itemUnread : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                title={`${describeParticipants(thread, account)} — ${thread.subject}`}
-                onClick={() => onSelect(thread.id)}
-              >
-                {initials(describeParticipants(thread, account))}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    );
-  }
-
   return (
     <section className={styles.pane} aria-label="Berichten">
       <div className={styles.head}>
@@ -156,11 +126,8 @@ export function ThreadList({
                   .join(" ")}
                 onClick={() => onSelect(thread.id)}
               >
-                <span className={styles.topRow}>
-                  <span className={styles.from}>
-                    {describeParticipants(thread, account)}
-                  </span>
-                  <span className={styles.date}>{formatDateRelative(thread.lastDate)}</span>
+                <span className={styles.from}>
+                  {describeParticipants(thread, account)}
                 </span>
                 <span className={styles.subject}>
                   {thread.subject}
@@ -168,7 +135,7 @@ export function ThreadList({
                     <span className={styles.count}>{thread.messageCount}</span>
                   )}
                 </span>
-                <span className={styles.snippet}>{thread.snippet}</span>
+                <span className={styles.date}>{formatDateRelative(thread.lastDate)}</span>
               </button>
             </li>
           ))}
@@ -180,13 +147,6 @@ export function ThreadList({
       )}
     </section>
   );
-}
-
-/** First letter of each of the first two words, for the collapsed icon rail. */
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("");
 }
 
 /** Show who the conversation is with, leaving out the account itself. */
