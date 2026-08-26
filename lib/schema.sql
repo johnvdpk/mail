@@ -221,3 +221,127 @@ CREATE TABLE IF NOT EXISTS notes (
 
 CREATE INDEX IF NOT EXISTS idx_notes_updated_at ON notes(updated_at DESC);
 
+-- ZZP projects: income and expense lines, no invoicing yet
+CREATE TABLE IF NOT EXISTS projects (
+  id           SERIAL PRIMARY KEY,
+  name         TEXT NOT NULL,
+  client_name  TEXT NOT NULL DEFAULT '',
+  description  TEXT NOT NULL DEFAULT '',
+  status       TEXT NOT NULL DEFAULT 'active'
+               CHECK (status IN ('active', 'done')),
+  start_on     DATE,
+  end_on       DATE,
+  is_overhead  BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_overhead
+  ON projects (is_overhead) WHERE is_overhead;
+
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects (status);
+
+CREATE TABLE IF NOT EXISTS project_lines (
+  id           SERIAL PRIMARY KEY,
+  project_id   INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  direction    TEXT NOT NULL CHECK (direction IN ('income', 'expense')),
+  billing      TEXT NOT NULL CHECK (billing IN ('periodic', 'one_off')),
+  name         TEXT NOT NULL,
+  amount       NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+  hours        NUMERIC(8, 2) CHECK (hours IS NULL OR hours >= 0),
+  cadence      TEXT CHECK (cadence IN ('week', 'month', 'quarter', 'year')),
+  occurred_on  DATE,
+  paid_on      DATE,
+  vat_rate     NUMERIC(5, 2) CHECK (vat_rate IS NULL OR (vat_rate >= 0 AND vat_rate <= 100)),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_lines_project ON project_lines (project_id);
+
+-- Migrate older installs: fixed/hourly -> one_off, monthly -> periodic; add paid-status tracking.
+UPDATE project_lines SET billing = 'one_off' WHERE billing IN ('fixed', 'hourly');
+UPDATE project_lines SET billing = 'periodic' WHERE billing = 'monthly';
+
+ALTER TABLE project_lines DROP CONSTRAINT IF EXISTS project_lines_billing_check;
+ALTER TABLE project_lines ADD CONSTRAINT project_lines_billing_check
+  CHECK (billing IN ('periodic', 'one_off'));
+
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS paid_on DATE;
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS cadence TEXT;
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS vat_rate NUMERIC(5, 2);
+
+ALTER TABLE project_lines DROP CONSTRAINT IF EXISTS project_lines_cadence_check;
+ALTER TABLE project_lines ADD CONSTRAINT project_lines_cadence_check
+  CHECK (cadence IN ('week', 'month', 'quarter', 'year'));
+
+ALTER TABLE project_lines DROP CONSTRAINT IF EXISTS project_lines_vat_rate_check;
+ALTER TABLE project_lines ADD CONSTRAINT project_lines_vat_rate_check
+  CHECK (vat_rate IS NULL OR (vat_rate >= 0 AND vat_rate <= 100));
+
+-- Existing periodic rows predate cadence tracking; they were always billed monthly.
+UPDATE project_lines SET cadence = 'month' WHERE billing = 'periodic' AND cadence IS NULL;
+
+-- Per-calendar-month paid tracking for periodic lines (a periodic line has no single
+-- payment date, so "paid" is tracked one row per covered month instead of via paid_on).
+CREATE TABLE IF NOT EXISTS project_line_payments (
+  id            SERIAL PRIMARY KEY,
+  line_id       INTEGER NOT NULL REFERENCES project_lines(id) ON DELETE CASCADE,
+  period_month  DATE NOT NULL,
+  paid_on       DATE NOT NULL,
+  UNIQUE (line_id, period_month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_line_payments_line ON project_line_payments (line_id);
+
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS ends_on DATE;
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS source_message_id TEXT;
+
+-- category used to be a fixed 6-value enum; it's now a user-managed list (see `categories`
+-- below), so the line itself just stores free text and isn't constrained anymore.
+ALTER TABLE project_lines DROP CONSTRAINT IF EXISTS project_lines_category_check;
+
+CREATE TABLE IF NOT EXISTS vat_filings (
+  year       INTEGER NOT NULL,
+  quarter    INTEGER NOT NULL CHECK (quarter BETWEEN 1 AND 4),
+  filed_on   DATE,
+  PRIMARY KEY (year, quarter)
+);
+
+-- Free-text detail from a bank mutation (e.g. invoice number) that doesn't fit the short `name`.
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS note TEXT;
+
+-- Maps a counterparty/description substring to a fixed category or project, so a bank
+-- mutation only needs to be tagged once (see components/projects/RuleTagDialog).
+CREATE TABLE IF NOT EXISTS counterparty_rules (
+  id         SERIAL PRIMARY KEY,
+  pattern    TEXT NOT NULL,
+  category   TEXT,
+  project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT counterparty_rules_target_check CHECK (
+    (category IS NOT NULL AND project_id IS NULL) OR
+    (category IS NULL AND project_id IS NOT NULL)
+  )
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_counterparty_rules_pattern ON counterparty_rules (lower(pattern));
+
+-- User-managed category list per direction, offered in the CategorySelect dropdowns. Lines
+-- store the category name as free text (not an FK) so renaming/deleting a category never
+-- breaks historic bookings.
+CREATE TABLE IF NOT EXISTS categories (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT NOT NULL,
+  direction  TEXT NOT NULL CHECK (direction IN ('income', 'expense')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name_direction ON categories (lower(name), direction);
+
+-- Seed with the six former hardcoded expense categories so existing `project_lines.category`
+-- values keep matching, plus a default income bucket.
+INSERT INTO categories (name, direction) VALUES
+  ('software', 'expense'), ('verzekering', 'expense'), ('huisvesting', 'expense'),
+  ('marketing', 'expense'), ('reiskosten', 'expense'), ('overig', 'expense'),
+  ('overig', 'income')
+ON CONFLICT (lower(name), direction) DO NOTHING;
+

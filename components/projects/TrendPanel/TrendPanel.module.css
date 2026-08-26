@@ -1,0 +1,63 @@
+.wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+.month {
+  display: block;
+  text-transform: capitalize;
+}
+
+.bar {
+  display: block;
+  height: 0.28rem;
+  margin-top: 0.25rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--green) 55%, var(--surface2));
+}
+
+.income {
+  color: var(--green);
+}
+
+.expense {
+  color: var(--red);
+}
+
+.prev {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+.hint,
+.empty,
+.error {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--red);
+}

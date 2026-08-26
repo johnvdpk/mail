@@ -1,0 +1,69 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 0.9rem;
+}
+
+.meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.income {
+  color: var(--green);
+}
+
+.expense {
+  color: var(--red);
+}
+
+.remind {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.ageFresh {
+  border-color: var(--border);
+}
+
+.ageWarn {
+  border-color: color-mix(in srgb, var(--red) 35%, var(--border));
+  background: color-mix(in srgb, var(--red) 8%, var(--card));
+}
+
+.ageOld {
+  border-color: color-mix(in srgb, var(--red) 55%, var(--border));
+  background: color-mix(in srgb, var(--red) 14%, var(--card));
+}
+
+.empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
