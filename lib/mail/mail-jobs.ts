@@ -1,4 +1,5 @@
 import { query, queryOne } from "../shared/db";
+import { logger } from "../shared/logger";
 import { getThreadDetail } from "./mailbox-service";
 import { sendNewMail, sendThreadReply } from "./send-service";
 
@@ -232,6 +233,7 @@ export async function processMailJobs(): Promise<{
   scheduledSent: number;
   semanticJobs: number;
   embeddingBackfill: EmbeddingBackfillResult;
+  outreachReplies: { matched: number; errors: string[] };
 }> {
   const woken = await wakeDueSnoozes();
   const followUps = await collectDueFollowUps();
@@ -264,5 +266,13 @@ export async function processMailJobs(): Promise<{
     console.error("[mail-jobs] embedding backfill", err);
   }
 
-  return { woken, followUps, scheduledSent, semanticJobs, embeddingBackfill };
+  let outreachReplies = { matched: 0, errors: [] as string[] };
+  try {
+    const { matchOutreachReplies } = await import("../outreach/reply-tracking");
+    outreachReplies = await matchOutreachReplies();
+  } catch (err) {
+    logger.error({ route: "mail-jobs", method: "GET", err }, "outreach replies");
+  }
+
+  return { woken, followUps, scheduledSent, semanticJobs, embeddingBackfill, outreachReplies };
 }

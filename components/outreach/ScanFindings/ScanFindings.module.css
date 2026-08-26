@@ -1,0 +1,27 @@
+.wrap {
+  padding: 0.7rem 1rem;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.title {
+  display: block;
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.ai {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+}
+
+.aiLabel {
+  font-weight: 600;
+}

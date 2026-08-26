@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth/auth";
 import {
   cancelScheduledSend,
   createFollowUp,
@@ -6,8 +6,8 @@ import {
   scheduleSend,
   snoozeThread,
   type SnoozeOption,
-} from "@/lib/mail-jobs";
-import { getFolderView, resolveFolderPath } from "@/lib/mailbox-service";
+} from "@/lib/mail/mail-jobs";
+import { getFolderView, resolveFolderPath } from "@/lib/mail/mailbox-service";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";

@@ -345,3 +345,51 @@ INSERT INTO categories (name, direction) VALUES
   ('overig', 'income')
 ON CONFLICT (lower(name), direction) DO NOTHING;
 
+-- Outreach: generic campaign-based lead list + AI personalization profile
+CREATE TABLE IF NOT EXISTS campaigns (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  slug        TEXT NOT NULL UNIQUE,
+  profile     JSONB NOT NULL DEFAULT '{}',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- One row per lead within a campaign. attributes holds campaign-type-specific
+-- fields (e.g. qualityScore, bookingType) so a new topic does not need a new table.
+CREATE TABLE IF NOT EXISTS campaign_targets (
+  id                 SERIAL PRIMARY KEY,
+  campaign_id        INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  email              TEXT NOT NULL,
+  email_normalized   TEXT NOT NULL,
+  name               TEXT NOT NULL,
+  website            TEXT,
+  status             TEXT NOT NULL DEFAULT 'new',
+  attributes         JSONB NOT NULL DEFAULT '{}',
+  imported_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  emailed_at         TIMESTAMPTZ,
+  excluded_at        TIMESTAMPTZ,
+  not_interested_at  TIMESTAMPTZ,
+
+  UNIQUE (campaign_id, email_normalized)
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_targets_campaign ON campaign_targets(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_targets_email_normalized ON campaign_targets(email_normalized);
+
+-- Sent outreach mails. message_id is our RFC Message-ID from sendNewMail.
+CREATE TABLE IF NOT EXISTS campaign_sends (
+  id               SERIAL PRIMARY KEY,
+  target_id        INTEGER NOT NULL REFERENCES campaign_targets(id) ON DELETE CASCADE,
+  message_id       TEXT NOT NULL,
+  subject          TEXT NOT NULL,
+  body_text        TEXT NOT NULL,
+  sent_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  is_test          BOOLEAN NOT NULL DEFAULT FALSE,
+  response_status  TEXT NOT NULL DEFAULT 'pending',
+  response_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_sends_target ON campaign_sends(target_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_sends_message_id ON campaign_sends(message_id);
+

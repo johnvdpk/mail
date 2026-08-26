@@ -1,0 +1,147 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-height: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dirty {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--red);
+  font-size: 0.85rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 0.85rem;
+  min-height: 0;
+  flex: 1;
+}
+
+.sectionNav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.sectionNav button {
+  text-align: left;
+}
+
+.sectionBtnActive {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.field,
+.numberField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+
+.fieldAccent {
+  padding: 0.65rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.fieldLabel {
+  font-weight: 600;
+}
+
+.fieldHint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.snippetList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.snippetCard {
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.snippetTitle {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.snippetHint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.numberField {
+  max-width: 12rem;
+  font-weight: 600;
+}
+
+.columnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sectionNav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
