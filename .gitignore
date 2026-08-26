@@ -6,3 +6,7 @@ data/*
 !data/.gitignore
 .env
 logs/
+
+# Losse projecten die toevallig in deze werkmap staan, geen onderdeel van de mail-app
+dashboard/
+camping-scraper/

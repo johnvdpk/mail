@@ -22,6 +22,8 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      "dashboard/**",
+      "camping-scraper/**",
       "node_modules/**",
       "public/**",
       "data/**",
