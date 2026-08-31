@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiRequest } from "@/lib/shared/api-request";
 import { useAsyncAction } from "@/lib/shared/use-async-action";
+import { SpellcheckBackdrop, SpellcheckSuggestions } from "@/components/mail/Spellcheck/SpellcheckMarks";
+import { useSpellcheck } from "@/components/mail/Spellcheck/useSpellcheck";
 import type { CampaignProfile, ListColumn, SegmentHint, SnippetItem } from "@/lib/outreach/campaign-profile";
 import type { Campaign } from "@/lib/outreach/types";
 import styles from "./CampaignProfileEditor.module.css";
@@ -12,24 +14,11 @@ type Props = {
   onSaved: (campaign: Campaign) => void;
 };
 
-type SectionId =
-  | "tone"
-  | "about"
-  | "snippets"
-  | "replies"
-  | "subjects"
-  | "promises"
-  | "segments"
-  | "footer"
-  | "columns";
+type SectionId = "context" | "replies" | "segments" | "footer" | "columns";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
-  { id: "tone", label: "Tone of voice" },
-  { id: "about", label: "Over mij" },
-  { id: "snippets", label: "Mail onderdelen" },
+  { id: "context", label: "AI-context" },
   { id: "replies", label: "Reply teksten" },
-  { id: "subjects", label: "Onderwerpregels" },
-  { id: "promises", label: "Beloften" },
   { id: "segments", label: "Per situatie" },
   { id: "footer", label: "Footer & test" },
   { id: "columns", label: "Tabelkolommen" },
@@ -37,7 +26,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
 
 export function CampaignProfileEditor({ campaign, onSaved }: Props) {
   const [profile, setProfile] = useState<CampaignProfile>(campaign.profile);
-  const [activeSection, setActiveSection] = useState<SectionId>("tone");
+  const [activeSection, setActiveSection] = useState<SectionId>("context");
   const [dirty, setDirty] = useState(false);
   const saveAction = useAsyncAction();
 
@@ -60,13 +49,6 @@ export function CampaignProfileEditor({ campaign, onSaved }: Props) {
     setProfile(data.campaign.profile);
     setDirty(false);
     onSaved(data.campaign);
-  }
-
-  function updateSnippet(id: string, patch: Partial<SnippetItem>) {
-    markDirty(
-      "snippets",
-      profile.snippets.map((s) => (s.id === id ? { ...s, ...patch } : s))
-    );
   }
 
   function updateReply(id: string, patch: Partial<SnippetItem>) {
@@ -117,99 +99,40 @@ export function CampaignProfileEditor({ campaign, onSaved }: Props) {
         </nav>
 
         <div className={styles.panel}>
-          {activeSection === "tone" && (
+          {activeSection === "context" && (
             <>
               <Field
-                label="Schrijfregels"
-                hint="Hoe de AI moet schrijven"
-                value={profile.toneOfVoice.rules}
-                onChange={(v) => markDirty("toneOfVoice", { ...profile.toneOfVoice, rules: v })}
-                rows={8}
+                label="Context voor de AI"
+                hint="Tone of voice, wie je bent, vaste tekstblokken (bijv. [Opening], [Pitch]), wat je wel/niet belooft, onderwerpregel-alternatieven — allemaal in één tekst. De AI leest dit als basis en past het per lead aan."
+                value={profile.context}
+                onChange={(v) => markDirty("context", v)}
+                rows={22}
+                spellcheckable
               />
-              <Field
-                label="Woorden om te vermijden"
-                value={profile.toneOfVoice.avoidWords}
-                onChange={(v) => markDirty("toneOfVoice", { ...profile.toneOfVoice, avoidWords: v })}
-                rows={3}
-              />
-              <label className={styles.numberField}>
-                Max. woorden per mail
-                <input
-                  type="number"
-                  min={80}
-                  max={500}
-                  value={profile.toneOfVoice.maxWords}
-                  onChange={(e) =>
-                    markDirty("toneOfVoice", {
-                      ...profile.toneOfVoice,
-                      maxWords: Number(e.target.value) || 200,
-                    })
-                  }
+              <div className={styles.inlineFields}>
+                <label className={styles.numberField}>
+                  Max. woorden per mail
+                  <input
+                    type="number"
+                    min={80}
+                    max={500}
+                    value={profile.maxWords}
+                    onChange={(e) => markDirty("maxWords", Number(e.target.value) || 200)}
+                  />
+                </label>
+                <Field
+                  label="Onderwerpregel"
+                  hint="Gebruik {naam} voor de leadnaam"
+                  value={profile.subjectLine}
+                  onChange={(v) => markDirty("subjectLine", v)}
+                  rows={1}
                 />
-              </label>
+              </div>
             </>
           )}
 
-          {activeSection === "about" && (
-            <>
-              <Field
-                label="Wie ben ik"
-                value={profile.aboutMe.intro}
-                onChange={(v) => markDirty("aboutMe", { ...profile.aboutMe, intro: v })}
-              />
-              <Field
-                label="Achtergrond"
-                value={profile.aboutMe.background}
-                onChange={(v) => markDirty("aboutMe", { ...profile.aboutMe, background: v })}
-              />
-              <Field
-                label="Waarom ik mail"
-                value={profile.aboutMe.whyReachOut}
-                onChange={(v) => markDirty("aboutMe", { ...profile.aboutMe, whyReachOut: v })}
-              />
-            </>
-          )}
-
-          {activeSection === "snippets" && (
-            <SnippetList items={profile.snippets} onChange={updateSnippet} />
-          )}
           {activeSection === "replies" && (
             <SnippetList items={profile.replies} onChange={updateReply} />
-          )}
-
-          {activeSection === "subjects" && (
-            <>
-              <Field
-                label="Standaard onderwerpregel"
-                hint="Gebruik {naam} voor de leadnaam"
-                value={profile.subjectLines.defaultFormat}
-                onChange={(v) => markDirty("subjectLines", { ...profile.subjectLines, defaultFormat: v })}
-                rows={2}
-              />
-              <Field
-                label="Alternatieven"
-                hint="Eén per regel"
-                value={profile.subjectLines.alternatives}
-                onChange={(v) => markDirty("subjectLines", { ...profile.subjectLines, alternatives: v })}
-              />
-            </>
-          )}
-
-          {activeSection === "promises" && (
-            <>
-              <Field
-                label="Wat ik wél aanbied"
-                value={profile.promises.doOffer}
-                onChange={(v) => markDirty("promises", { ...profile.promises, doOffer: v })}
-                rows={6}
-              />
-              <Field
-                label="Wat ik niet beloof"
-                value={profile.promises.dontOffer}
-                onChange={(v) => markDirty("promises", { ...profile.promises, dontOffer: v })}
-                rows={6}
-              />
-            </>
           )}
 
           {activeSection === "segments" && (
@@ -236,12 +159,14 @@ export function CampaignProfileEditor({ campaign, onSaved }: Props) {
                 value={profile.footer.text}
                 onChange={(v) => markDirty("footer", { ...profile.footer, text: v })}
                 rows={4}
+                spellcheckable
               />
               <Field
                 label="Footer (HTML, optioneel)"
                 value={profile.footer.html}
                 onChange={(v) => markDirty("footer", { ...profile.footer, html: v })}
                 rows={6}
+                spellCheck={false}
               />
               <Field
                 label="Testadres"
@@ -249,6 +174,7 @@ export function CampaignProfileEditor({ campaign, onSaved }: Props) {
                 value={profile.testEmail}
                 onChange={(v) => markDirty("testEmail", v)}
                 rows={1}
+                spellCheck={false}
               />
             </>
           )}
@@ -278,7 +204,13 @@ function SnippetList({
         <article key={snippet.id} className={styles.snippetCard}>
           <h3 className={styles.snippetTitle}>{snippet.label}</h3>
           {snippet.hint && <p className={styles.snippetHint}>{snippet.hint}</p>}
-          <Field label="Tekstblok" value={snippet.text} onChange={(v) => onChange(snippet.id, { text: v })} rows={5} />
+          <Field
+            label="Tekstblok"
+            value={snippet.text}
+            onChange={(v) => onChange(snippet.id, { text: v })}
+            rows={5}
+            spellcheckable
+          />
           <Field
             label="Eigen info (persoonlijke noot voor AI)"
             value={snippet.personalNote}
@@ -299,6 +231,8 @@ function Field({
   onChange,
   rows = 4,
   accent,
+  spellCheck = true,
+  spellcheckable = false,
 }: {
   label: string;
   hint?: string;
@@ -306,13 +240,54 @@ function Field({
   onChange: (value: string) => void;
   rows?: number;
   accent?: boolean;
+  spellCheck?: boolean;
+  /** Adds an AI-powered "Spellingcontrole" button with inline suggestions, on top of native browser spellcheck. */
+  spellcheckable?: boolean;
 }) {
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const spellcheck = useSpellcheck(value, onChange);
+
   return (
-    <label className={`${styles.field} ${accent ? styles.fieldAccent : ""}`}>
-      <span className={styles.fieldLabel}>{label}</span>
-      {hint && <span className={styles.fieldHint}>{hint}</span>}
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows} />
-    </label>
+    <div className={styles.fieldGroup}>
+      <label className={`${styles.field} ${accent ? styles.fieldAccent : ""}`}>
+        <span className={styles.fieldLabel}>{label}</span>
+        {hint && <span className={styles.fieldHint}>{hint}</span>}
+        <div className={styles.textareaWrap}>
+          {spellcheckable && (
+            <SpellcheckBackdrop text={value} corrections={spellcheck.corrections} scrollRef={backdropRef} />
+          )}
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onScroll={(e) => {
+              if (spellcheckable && backdropRef.current) backdropRef.current.scrollTop = e.currentTarget.scrollTop;
+            }}
+            rows={rows}
+            spellCheck={spellCheck}
+            lang="nl"
+            className={spellcheckable && spellcheck.corrections.length ? styles.textareaMarked : undefined}
+          />
+        </div>
+      </label>
+      {spellcheckable && (
+        <>
+          <button
+            type="button"
+            className={styles.spellcheckBtn}
+            disabled={spellcheck.checking || !value.trim()}
+            onClick={() => void spellcheck.runCheck()}
+          >
+            {spellcheck.checking ? "Controleren…" : "Spellingcontrole"}
+          </button>
+          {spellcheck.error && <p className={styles.error}>{spellcheck.error}</p>}
+          <SpellcheckSuggestions
+            corrections={spellcheck.corrections}
+            onAccept={spellcheck.accept}
+            onDismiss={spellcheck.dismiss}
+          />
+        </>
+      )}
+    </div>
   );
 }
 

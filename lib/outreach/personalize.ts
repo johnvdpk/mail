@@ -84,7 +84,7 @@ ${contextBlock}
 
 Schrijf een gepersonaliseerde mail.
 Verwijs naar max één concreet detail dat je ZEKER weet (haakje uit scan of website). Liever weglaten dan gissen.
-Houd de mail KORT (max ~${profile.toneOfVoice.maxWords} woorden). Liever te kort dan te lang.
+Houd de mail KORT (max ~${profile.maxWords} woorden). Liever te kort dan te lang.
 Geen URL, geen democode, geen telefoonnummer in de body als die al in de footer staan.
 In findings: kort wat je gebruikte + eventuele scan-signalen.`;
 

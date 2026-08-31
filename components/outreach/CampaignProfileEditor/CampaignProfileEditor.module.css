@@ -72,12 +72,32 @@
   overflow-y: auto;
 }
 
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .field,
 .numberField {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.85rem;
+}
+
+.textareaWrap {
+  position: relative;
+}
+
+.textareaMarked {
+  background: transparent;
+}
+
+.spellcheckBtn {
+  align-self: flex-start;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
 }
 
 .fieldAccent {
@@ -126,6 +146,18 @@
 .numberField {
   max-width: 12rem;
   font-weight: 600;
+}
+
+.inlineFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+
+.inlineFields .field {
+  flex: 1;
+  min-width: 12rem;
 }
 
 .columnRow {

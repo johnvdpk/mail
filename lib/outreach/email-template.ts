@@ -77,7 +77,7 @@ export function buildOutreachEmail(
     options?.bodyText ?? "",
     profile.footer.text
   );
-  const subject = options?.subject ?? profile.subjectLines.defaultFormat.replace("{naam}", leadName);
+  const subject = options?.subject ?? profile.subjectLine.replace("{naam}", leadName);
   const footerText = profile.footer.text.trim();
   const text = footerText ? `${body.trim()}\n\n${footerText}` : body.trim();
   const html = bodyToHtml(body, websiteUrl, profile.footer.html);

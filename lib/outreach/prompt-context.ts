@@ -51,39 +51,11 @@ export function buildConfigPromptContext(
 ): string {
   const lines: string[] = [];
 
-  lines.push("=== TONE OF VOICE ===");
-  lines.push(profile.toneOfVoice.rules);
-  if (profile.toneOfVoice.avoidWords.trim()) {
-    lines.push(`Vermijd woorden/zinnen: ${profile.toneOfVoice.avoidWords}`);
-  }
-  lines.push(`Maximaal ~${profile.toneOfVoice.maxWords} woorden.`);
+  lines.push(profile.context);
+  lines.push(`\nMaximaal ~${profile.maxWords} woorden.`);
 
-  lines.push("\n=== OVER MIJ (afzender) ===");
-  lines.push(profile.aboutMe.intro);
-  lines.push(profile.aboutMe.background);
-  lines.push(profile.aboutMe.whyReachOut);
-
-  lines.push("\n=== TEKSTBLOKKEN (gebruik als basis, pas aan per lead) ===");
-  for (const snippet of profile.snippets) {
-    lines.push(`\n[${snippet.label}]`);
-    lines.push(snippet.text);
-    if (snippet.personalNote.trim()) {
-      lines.push(`Persoonlijke noot voor AI: ${snippet.personalNote}`);
-    }
-  }
-
-  lines.push("\n=== WAT MAG / MAG NIET BELOOFD WORDEN ===");
-  lines.push("Wel aanbieden:");
-  lines.push(profile.promises.doOffer);
-  lines.push("Niet beloven:");
-  lines.push(profile.promises.dontOffer);
-
-  lines.push("\n=== ONDERWERPREGELS ===");
-  lines.push(`Standaardformaat: ${profile.subjectLines.defaultFormat}`);
-  if (profile.subjectLines.alternatives.trim()) {
-    lines.push("Alternatieven (één kiezen):");
-    lines.push(profile.subjectLines.alternatives);
-  }
+  lines.push(`\n=== ONDERWERPREGEL ===`);
+  lines.push(`Standaardformaat: ${profile.subjectLine}`);
   lines.push("Vervang {naam} door de naam van de lead.");
 
   const segmentHint = pickSegmentHint(profile, target, scan);
@@ -99,16 +71,8 @@ export function buildReplyPromptContext(profile: CampaignProfile, intent: ReplyI
   const lines: string[] = [];
   const template = profile.replies.find((r) => r.id === intent);
 
-  lines.push("=== TONE OF VOICE ===");
-  lines.push(profile.toneOfVoice.rules);
-  if (profile.toneOfVoice.avoidWords.trim()) {
-    lines.push(`Vermijd woorden/zinnen: ${profile.toneOfVoice.avoidWords}`);
-  }
-  lines.push(`Maximaal ~${Math.min(profile.toneOfVoice.maxWords, 150)} woorden.`);
-
-  lines.push("\n=== OVER MIJ (afzender) ===");
-  lines.push(profile.aboutMe.intro);
-  lines.push(profile.aboutMe.background);
+  lines.push(profile.context);
+  lines.push(`\nMaximaal ~${Math.min(profile.maxWords, 150)} woorden.`);
 
   if (template) {
     lines.push(`\n=== REPLY-TEMPLATE: ${template.label.toUpperCase()} ===`);
@@ -117,14 +81,6 @@ export function buildReplyPromptContext(profile: CampaignProfile, intent: ReplyI
       lines.push(`Persoonlijke noot voor AI: ${template.personalNote}`);
     }
     if (template.hint) lines.push(`Doel: ${template.hint}`);
-  }
-
-  if (intent === "opvolging") {
-    lines.push("\n=== WAT MAG / MAG NIET BELOOFD WORDEN ===");
-    lines.push("Wel aanbieden:");
-    lines.push(profile.promises.doOffer);
-    lines.push("Niet beloven:");
-    lines.push(profile.promises.dontOffer);
   }
 
   return lines.join("\n");

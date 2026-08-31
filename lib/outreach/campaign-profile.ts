@@ -27,26 +27,11 @@ export type ListColumn = {
 
 export type CampaignProfile = {
   listColumns: ListColumn[];
-  toneOfVoice: {
-    rules: string;
-    avoidWords: string;
-    maxWords: number;
-  };
-  aboutMe: {
-    intro: string;
-    background: string;
-    whyReachOut: string;
-  };
-  snippets: SnippetItem[];
+  /** Vrije AI-context: tone of voice, over mij, tekstblokken, beloftes, onderwerpalternatieven. */
+  context: string;
+  maxWords: number;
+  subjectLine: string;
   replies: SnippetItem[];
-  subjectLines: {
-    defaultFormat: string;
-    alternatives: string;
-  };
-  promises: {
-    doOffer: string;
-    dontOffer: string;
-  };
   segments: SegmentHint[];
   footer: {
     text: string;
@@ -55,47 +40,60 @@ export type CampaignProfile = {
   testEmail: string;
 };
 
-const EMPTY_SNIPPET = (id: string, label: string, hint: string): SnippetItem => ({
-  id,
-  label,
-  hint,
-  text: "",
-  personalNote: "",
-});
-
-export const DEFAULT_CAMPAIGN_PROFILE: CampaignProfile = {
-  listColumns: [],
-  toneOfVoice: {
-    rules: `Warm, kort en menselijk. Informeel maar professioneel.
+const DEFAULT_CONTEXT = `=== TONE OF VOICE ===
+Warm, kort en menselijk. Informeel maar professioneel.
 Begin met Hey, houd het kort.
 Gebruik je/jij, geen salespraat.
 Noem alleen wat je ZEKER weet over de lead. Geen aannames.
 Maximaal één concrete observatie. Reageer nuchter.
 Geen streepjes of puntkomma's (dat klinkt AI-achtig)
-Houd het kort: liever te kort dan te lang`,
-    avoidWords: "garantie, uniek systeem, beste oplossing, revolutionair",
-    maxWords: 200,
-  },
-  aboutMe: {
-    intro: "",
-    background: "",
-    whyReachOut: "",
-  },
-  snippets: [
-    EMPTY_SNIPPET("opening", "Opening", "Eerste alinea — kort en persoonlijk"),
-    EMPTY_SNIPPET("pitch", "Pitch", "Wie je bent en wat je aanbiedt"),
-    EMPTY_SNIPPET("observation", "Observatie", "Eén concreet detail dat je zeker weet"),
-    EMPTY_SNIPPET("no_interest", "Geen interesse", "Uitweg als ze niet willen"),
-    EMPTY_SNIPPET("yes_interest", "Wel interesse", "Call to action"),
-    {
-      id: "closing",
-      label: "Afsluiting",
-      hint: "Laatste zinnen vóór Groeten",
-      text: "Wie weet spreken we elkaar.\n\nGroeten,\nJohn",
-      personalNote: "",
-    },
-    EMPTY_SNIPPET("ps", "P.S.", "Optioneel, ná Groeten"),
-  ],
+Houd het kort: liever te kort dan te lang
+
+Vermijd woorden/zinnen: garantie, uniek systeem, beste oplossing, revolutionair
+
+=== OVER MIJ (afzender) ===
+
+
+=== TEKSTBLOKKEN (gebruik als basis, pas aan per lead) ===
+
+[Opening]
+Eerste alinea — kort en persoonlijk
+
+[Pitch]
+Wie je bent en wat je aanbiedt
+
+[Observatie]
+Eén concreet detail dat je zeker weet
+
+[Geen interesse]
+Uitweg als ze niet willen
+
+[Wel interesse]
+Call to action
+
+[Afsluiting]
+Wie weet spreken we elkaar.
+
+Groeten,
+John
+
+[P.S.]
+Optioneel, ná Groeten
+
+=== WAT MAG / MAG NIET BELOOFD WORDEN ===
+Wel aanbieden:
+
+Niet beloven:
+
+
+=== ONDERWERPREGELS - ALTERNATIEVEN ===
+Aangenaam, {naam}`;
+
+export const DEFAULT_CAMPAIGN_PROFILE: CampaignProfile = {
+  listColumns: [],
+  context: DEFAULT_CONTEXT,
+  maxWords: 200,
+  subjectLine: "Even kort, {naam}",
   replies: [
     {
       id: "afronden",
@@ -112,14 +110,6 @@ Houd het kort: liever te kort dan te lang`,
       personalNote: "Reageer concreet op wat zij schreven. Geen druk.",
     },
   ],
-  subjectLines: {
-    defaultFormat: "Even kort, {naam}",
-    alternatives: "Aangenaam, {naam}",
-  },
-  promises: {
-    doOffer: "",
-    dontOffer: "",
-  },
   segments: [
     { id: "multi_location", label: "Meerdere locaties / keten", hint: "" },
     { id: "known_platform", label: "Al een bekend platform", hint: "" },
@@ -135,18 +125,68 @@ Houd het kort: liever te kort dan te lang`,
   testEmail: "",
 };
 
+/** Shape used before the profile editor collapsed tone/about/snippets/promises/subjects into one free-text `context`. */
+type LegacyProfileFields = {
+  toneOfVoice?: { rules?: string; avoidWords?: string; maxWords?: number };
+  aboutMe?: { intro?: string; background?: string; whyReachOut?: string };
+  snippets?: SnippetItem[];
+  subjectLines?: { defaultFormat?: string; alternatives?: string };
+  promises?: { doOffer?: string; dontOffer?: string };
+};
+
+/** Reconstructs a `context` blob from a pre-migration profile so existing campaigns (e.g. "Campings") keep their content. */
+function migrateLegacyContext(legacy: LegacyProfileFields): string | undefined {
+  if (!legacy.toneOfVoice && !legacy.aboutMe && !legacy.snippets && !legacy.promises && !legacy.subjectLines) {
+    return undefined;
+  }
+
+  const lines: string[] = [];
+  if (legacy.toneOfVoice?.rules) lines.push(legacy.toneOfVoice.rules);
+  if (legacy.toneOfVoice?.avoidWords) lines.push(`Vermijd woorden/zinnen: ${legacy.toneOfVoice.avoidWords}`);
+
+  const about = legacy.aboutMe;
+  if (about?.intro || about?.background || about?.whyReachOut) {
+    lines.push("\n=== OVER MIJ ===");
+    if (about.intro) lines.push(about.intro);
+    if (about.background) lines.push(about.background);
+    if (about.whyReachOut) lines.push(about.whyReachOut);
+  }
+
+  if (legacy.snippets?.length) {
+    lines.push("\n=== TEKSTBLOKKEN ===");
+    for (const snippet of legacy.snippets) {
+      lines.push(`\n[${snippet.label}]`);
+      if (snippet.text) lines.push(snippet.text);
+      if (snippet.personalNote) lines.push(`Persoonlijke noot voor AI: ${snippet.personalNote}`);
+    }
+  }
+
+  const promises = legacy.promises;
+  if (promises?.doOffer || promises?.dontOffer) {
+    lines.push("\n=== WAT MAG / MAG NIET BELOOFD WORDEN ===");
+    if (promises.doOffer) lines.push(`Wel aanbieden:\n${promises.doOffer}`);
+    if (promises.dontOffer) lines.push(`Niet beloven:\n${promises.dontOffer}`);
+  }
+
+  if (legacy.subjectLines?.alternatives) {
+    lines.push("\n=== ONDERWERPREGELS - ALTERNATIEVEN ===");
+    lines.push(legacy.subjectLines.alternatives);
+  }
+
+  return lines.join("\n").trim();
+}
+
 export function mergeWithDefaults(partial: Partial<CampaignProfile> | null | undefined): CampaignProfile {
   const defaults = structuredClone(DEFAULT_CAMPAIGN_PROFILE);
   if (!partial || typeof partial !== "object") return defaults;
+  const legacy = partial as LegacyProfileFields;
 
   return {
     listColumns: Array.isArray(partial.listColumns) ? partial.listColumns : defaults.listColumns,
-    toneOfVoice: { ...defaults.toneOfVoice, ...partial.toneOfVoice },
-    aboutMe: { ...defaults.aboutMe, ...partial.aboutMe },
-    snippets: mergeSnippets(partial.snippets, defaults.snippets),
+    context: partial.context ?? migrateLegacyContext(legacy) ?? defaults.context,
+    maxWords: partial.maxWords ?? legacy.toneOfVoice?.maxWords ?? defaults.maxWords,
+    subjectLine: partial.subjectLine ?? legacy.subjectLines?.defaultFormat ?? defaults.subjectLine,
     replies: mergeSnippets(partial.replies, defaults.replies),
-    subjectLines: { ...defaults.subjectLines, ...partial.subjectLines },
-    promises: { ...defaults.promises, ...partial.promises },
     segments: mergeSegments(partial.segments, defaults.segments),
     footer: { ...defaults.footer, ...partial.footer },
     testEmail: partial.testEmail ?? defaults.testEmail,
