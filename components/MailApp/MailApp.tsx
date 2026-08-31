@@ -263,6 +263,7 @@ export function MailApp({
               onSetLinePaidMonth={(id, lineId, month, paid) =>
                 void state.setProjectLinePaidMonth(id, lineId, month, paid)
               }
+              onSetLinePaidOn={(id, lineId, paid) => void state.setProjectLinePaidOn(id, lineId, paid)}
               onDeleteLines={(items) => void state.deleteProjectLines(items)}
               onImported={() => void state.loadProjects()}
               onClose={() => state.setShowProjects(false)}

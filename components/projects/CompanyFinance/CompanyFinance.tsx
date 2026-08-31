@@ -12,6 +12,7 @@ import type {
 } from "@/lib/projects/types";
 import { apiRequest } from "@/lib/shared/api-request";
 import { CategoryBreakdown } from "../CategoryBreakdown/CategoryBreakdown";
+import { CategoryManager } from "../CategoryManager/CategoryManager";
 import { ImportCsvDialog } from "../ImportCsvDialog/ImportCsvDialog";
 import { LedgerPanel } from "../LedgerPanel/LedgerPanel";
 import { ProjectLineForm } from "../ProjectLineForm/ProjectLineForm";
@@ -31,6 +32,8 @@ type Props = {
   overheadId: number | null;
   submitting: boolean;
   onAddLine: (id: number, input: LineInput) => void;
+  onSetLinePaidMonth: (id: number, lineId: number, month: string | string[], paid: boolean) => void;
+  onSetLinePaidOn: (id: number, lineId: number, paid: boolean) => void;
   onDeleteLines: (items: Array<{ projectId: number; lineId: number }>) => void;
   onImported: () => void;
 };
@@ -52,6 +55,8 @@ export function CompanyFinance({
   overheadId,
   submitting,
   onAddLine,
+  onSetLinePaidMonth,
+  onSetLinePaidOn,
   onDeleteLines,
   onImported,
 }: Props) {
@@ -82,6 +87,20 @@ export function CompanyFinance({
   }, [year]);
 
   useEffect(loadRules, []);
+
+  async function toggleFiling(quarter: 1 | 2 | 3 | 4, filed: boolean) {
+    try {
+      await apiRequest(`/api/projects/vat/${year}/${quarter}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filed }),
+      });
+      const data = await apiRequest<VatResponse>(`/api/projects/vat?year=${year}`);
+      setQuarters(data.quarters);
+    } catch {
+      // Filing status is a soft bookkeeping marker; a failed toggle just leaves the UI unchanged.
+    }
+  }
 
   async function exportCsv() {
     const res = await fetch(`/api/projects/export?year=${year}`);
@@ -119,6 +138,8 @@ export function CompanyFinance({
           rows={ledger}
           projects={projects}
           submitting={submitting}
+          onSetLinePaidMonth={onSetLinePaidMonth}
+          onSetLinePaidOn={onSetLinePaidOn}
           onDelete={onDeleteLines}
           onReload={() => {
             loadRules();
@@ -153,6 +174,11 @@ export function CompanyFinance({
       )}
 
       <section>
+        <h3 className={styles.sectionTitle}>Categorieën beheren</h3>
+        <CategoryManager />
+      </section>
+
+      <section>
         <h3 className={styles.sectionTitle}>Kosten per categorie</h3>
         <CategoryBreakdown items={expenseCategories} emptyLabel="Nog geen uitgaven met categorie in deze periode." />
       </section>
@@ -169,7 +195,7 @@ export function CompanyFinance({
 
       <section>
         <h3 className={styles.sectionTitle}>BTW per kwartaal ({year})</h3>
-        <VatOverview quarters={quarters} />
+        <VatOverview quarters={quarters} onToggleFiling={(quarter, filed) => void toggleFiling(quarter, filed)} />
       </section>
 
       {importOpen && (

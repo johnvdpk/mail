@@ -8,8 +8,6 @@ import styles from "./OpenItemsList.module.css";
 
 type Props = {
   items: OpenLineItem[];
-  onRemind?: (item: OpenLineItem) => void;
-  remindingId?: number | null;
 };
 
 function ageClass(daysOpen: number): string {
@@ -18,7 +16,7 @@ function ageClass(daysOpen: number): string {
   return styles.ageFresh;
 }
 
-export function OpenItemsList({ items, onRemind, remindingId }: Props) {
+export function OpenItemsList({ items }: Props) {
   if (items.length === 0) {
     return <p className={styles.empty}>Geen openstaande posten.</p>;
   }
@@ -41,16 +39,6 @@ export function OpenItemsList({ items, onRemind, remindingId }: Props) {
           <strong className={item.direction === "income" ? styles.income : styles.expense}>
             {formatEuro(item.amount)}
           </strong>
-          {item.direction === "income" && onRemind && (
-            <button
-              type="button"
-              className={styles.remind}
-              disabled={remindingId === item.lineId}
-              onClick={() => onRemind(item)}
-            >
-              {remindingId === item.lineId ? "Bezig…" : "Stuur herinnering"}
-            </button>
-          )}
         </li>
       ))}
     </ul>

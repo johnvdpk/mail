@@ -121,6 +121,11 @@ export type LedgerRow = {
   amount: number;
   occurredOn: string | null;
   category: string | null;
+  paid: boolean;
+  /** Periodic line where some but not all months of the queried period are paid. */
+  partiallyPaid: boolean;
+  /** Months this row's paid-status covers ("YYYY-MM"); null for one_off (uses paidOn instead). */
+  periodMonths: string[] | null;
 };
 
 /** Maps a counterparty/description substring to a fixed category or project (mutually exclusive). */

@@ -65,3 +65,29 @@
   color: var(--muted);
   font-size: 0.8rem;
 }
+
+.badgePaid,
+.badgePartial,
+.badgeOpen {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.badgePaid {
+  background: color-mix(in srgb, var(--green) 15%, var(--surface2));
+  color: var(--green);
+}
+
+.badgePartial {
+  background: color-mix(in srgb, var(--red) 8%, var(--surface2));
+  color: var(--muted);
+}
+
+.badgeOpen {
+  background: color-mix(in srgb, var(--red) 15%, var(--surface2));
+  color: var(--red);
+}

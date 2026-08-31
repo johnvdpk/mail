@@ -26,6 +26,7 @@ type Props = {
   onUpdateLine: (id: number, lineId: number, input: LineInput) => void;
   onDeleteLine: (id: number, lineId: number) => void;
   onSetLinePaidMonth: (id: number, lineId: number, month: string | string[], paid: boolean) => void;
+  onSetLinePaidOn: (id: number, lineId: number, paid: boolean) => void;
   onDeleteLines: (items: Array<{ projectId: number; lineId: number }>) => void;
   onImported: () => void;
   onClose: () => void;
@@ -47,6 +48,7 @@ export function ProjectsPanel({
   onUpdateLine,
   onDeleteLine,
   onSetLinePaidMonth,
+  onSetLinePaidOn,
   onDeleteLines,
   onImported,
   onClose,
@@ -193,6 +195,8 @@ export function ProjectsPanel({
           overheadId={overheadProject?.id ?? null}
           submitting={submitting}
           onAddLine={onAddLine}
+          onSetLinePaidMonth={onSetLinePaidMonth}
+          onSetLinePaidOn={onSetLinePaidOn}
           onDeleteLines={onDeleteLines}
           onImported={onImported}
         />

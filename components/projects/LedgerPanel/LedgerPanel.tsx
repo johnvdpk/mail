@@ -13,11 +13,33 @@ type Props = {
   rows: LedgerRow[];
   projects: ProjectOption[];
   submitting: boolean;
+  onSetLinePaidMonth: (id: number, lineId: number, month: string | string[], paid: boolean) => void;
+  onSetLinePaidOn: (id: number, lineId: number, paid: boolean) => void;
   onDelete: (items: Array<{ projectId: number; lineId: number }>) => void;
   onReload: () => void;
 };
 
-export function LedgerPanel({ rows, projects, submitting, onDelete, onReload }: Props) {
+function paidLabel(row: LedgerRow): string {
+  if (row.paid) return "Betaald";
+  if (row.partiallyPaid) return "Deels betaald";
+  return "Open";
+}
+
+function paidBadgeClass(row: LedgerRow): string {
+  if (row.paid) return styles.badgePaid;
+  if (row.partiallyPaid) return styles.badgePartial;
+  return styles.badgeOpen;
+}
+
+export function LedgerPanel({
+  rows,
+  projects,
+  submitting,
+  onSetLinePaidMonth,
+  onSetLinePaidOn,
+  onDelete,
+  onReload,
+}: Props) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [tagging, setTagging] = useState<LedgerRow | null>(null);
   const allIds = rows.map((row) => row.lineId);
@@ -40,6 +62,14 @@ export function LedgerPanel({ rows, projects, submitting, onDelete, onReload }: 
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(allIds));
+  }
+
+  function togglePaid(row: LedgerRow) {
+    if (row.billing === "one_off") {
+      onSetLinePaidOn(row.projectId, row.lineId, !row.paid);
+      return;
+    }
+    if (row.periodMonths) onSetLinePaidMonth(row.projectId, row.lineId, row.periodMonths, !row.paid);
   }
 
   function removeSelected() {
@@ -76,6 +106,7 @@ export function LedgerPanel({ rows, projects, submitting, onDelete, onReload }: 
             <th>Project</th>
             <th>In</th>
             <th>Uit</th>
+            <th>Betaald</th>
             <th />
           </tr>
         </thead>
@@ -106,6 +137,16 @@ export function LedgerPanel({ rows, projects, submitting, onDelete, onReload }: 
                 {row.direction === "expense" ? formatEuro(row.amount) : ""}
               </td>
               <td>
+                <button
+                  type="button"
+                  className={paidBadgeClass(row)}
+                  disabled={submitting}
+                  onClick={() => togglePaid(row)}
+                >
+                  {paidLabel(row)}
+                </button>
+              </td>
+              <td>
                 <button type="button" onClick={() => setTagging(row)}>
                   Markeer als…
                 </button>
@@ -118,6 +159,7 @@ export function LedgerPanel({ rows, projects, submitting, onDelete, onReload }: 
             <td colSpan={4}>Totaal ({rows.length} regels)</td>
             <td className={styles.income}>{formatEuro(incomeTotal)}</td>
             <td className={styles.expense}>{formatEuro(expenseTotal)}</td>
+            <td />
             <td />
           </tr>
         </tfoot>

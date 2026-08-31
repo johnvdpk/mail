@@ -37,7 +37,6 @@ export function useProjectsState({
   const [overview, setOverview] = useState<ProjectsOverview | null>(null);
   const [active, setActive] = useState<ProjectDetail | null>(null);
   const [overdueCount, setOverdueCount] = useState(0);
-  const [remindingId, setRemindingId] = useState<number | null>(null);
 
   const loadAction = useAsyncAction();
   const submitAction = useAsyncAction();
@@ -245,6 +244,23 @@ export function useProjectsState({
     }, "Regels verwijderen mislukt");
   }
 
+  async function setLinePaidOn(projectId: number, lineId: number, paid: boolean) {
+    await submitAction.run(async () => {
+      setError(null);
+      try {
+        await apiRequest(`/api/projects/${projectId}/lines/${lineId}/paid`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paid }),
+        });
+        await loadProjects(active?.id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Betaalstatus bijwerken mislukt");
+        throw err;
+      }
+    }, "Betaalstatus bijwerken mislukt");
+  }
+
   async function removeLine(projectId: number, lineId: number) {
     await submitAction.run(async () => {
       setError(null);
@@ -279,8 +295,7 @@ export function useProjectsState({
     removeLine,
     removeLines,
     setLinePaidMonth,
+    setLinePaidOn,
     overdueCount,
-    remindingId,
-    setRemindingId,
   };
 }

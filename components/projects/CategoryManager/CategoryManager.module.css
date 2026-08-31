@@ -1,0 +1,62 @@
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.columnTitle {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.name {
+  flex: 1;
+}
+
+.linkBtn {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.editInput {
+  flex: 1;
+}
+
+.addRow {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.addRow input {
+  flex: 1;
+}
+
+.empty {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.error {
+  margin: 0 0 0.4rem;
+  color: var(--red);
+  font-size: 0.8rem;
+}

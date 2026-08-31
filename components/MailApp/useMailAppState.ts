@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { FolderSummary, Thread } from "@/lib/shared/types";
-import type { LineInput, OpenLineItem } from "@/lib/projects/types";
+import type { LineInput } from "@/lib/projects/types";
 import { useMailThreadsState } from "@/components/mail/hooks/useMailThreadsState";
 import { useReplyComposeState } from "@/components/mail/hooks/useReplyComposeState";
 import { useAiToolsState } from "@/components/mail/hooks/useAiToolsState";
@@ -9,7 +9,6 @@ import { useTicketsState } from "@/components/tickets/hooks/useTicketsState";
 import { useNotesState } from "@/components/notes/hooks/useNotesState";
 import { useProjectsState } from "@/components/projects/hooks/useProjectsState";
 import { useOutreachState } from "@/components/outreach/hooks/useOutreachState";
-import { apiRequest } from "@/lib/shared/api-request";
 
 export function useMailAppState(
   initialFolders: FolderSummary[],
@@ -106,32 +105,6 @@ export function useMailAppState(
   function closeCompose() {
     setComposePrefill(null);
     mail.setComposeOpen(false);
-  }
-
-  async function remindOpenItem(item: OpenLineItem) {
-    projects.setRemindingId(item.lineId);
-    try {
-      const data = await apiRequest<{ body: string }>("/api/ai/payment-reminder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientName: item.clientName,
-          projectName: item.projectName,
-          lineName: item.name,
-          amount: item.amount,
-          daysOpen: item.daysOpen,
-        }),
-      });
-      openCompose({
-        to: item.clientName.includes("@") ? item.clientName : "",
-        subject: `Betalingsherinnering: ${item.name}`,
-        body: data.body,
-      });
-    } catch (err) {
-      mail.setError(err instanceof Error ? err.message : "Herinnering opstellen mislukt");
-    } finally {
-      projects.setRemindingId(null);
-    }
   }
 
   async function bookExpenseLine(projectId: number, input: LineInput) {
@@ -374,9 +347,8 @@ export function useMailAppState(
     deleteProjectLine: projects.removeLine,
     deleteProjectLines: projects.removeLines,
     setProjectLinePaidMonth: projects.setLinePaidMonth,
+    setProjectLinePaidOn: projects.setLinePaidOn,
     overdueCount: projects.overdueCount,
-    remindingId: projects.remindingId,
-    remindOpenItem,
     loadProjects: projects.loadProjects,
     bookMessageId,
     setBookMessageId,

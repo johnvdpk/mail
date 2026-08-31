@@ -400,6 +400,26 @@ export async function setLinePaidMonths(
   return "ok";
 }
 
+/** Sets (or clears) the paid date for a one_off line. Periodic lines use setLinePaidMonth(s) instead. */
+export async function setLinePaidOn(
+  projectId: number,
+  lineId: number,
+  paidOn: string | null
+): Promise<"ok" | "missing"> {
+  const line = await queryOne<{ id: number }>(
+    "SELECT id FROM project_lines WHERE id = $1 AND project_id = $2 AND billing = 'one_off'",
+    [lineId, projectId]
+  );
+  if (!line) return "missing";
+  await query("UPDATE project_lines SET paid_on = $3 WHERE id = $1 AND project_id = $2", [
+    lineId,
+    projectId,
+    paidOn,
+  ]);
+  await touchProject(projectId);
+  return "ok";
+}
+
 export async function getOverheadProject(): Promise<Project> {
   await ensureOverheadProject();
   const row = await queryOne<ProjectRow>("SELECT * FROM projects WHERE is_overhead = TRUE");

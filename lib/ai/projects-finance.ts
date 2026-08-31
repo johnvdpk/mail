@@ -48,16 +48,6 @@ Regels:
 - occurredOn: factuurdatum YYYY-MM-DD als die in de mail staat, anders de maildatum.
 - Geen extra keys, geen markdown.`;
 
-const REMINDER_SYSTEM = `Je schrijft een korte, beleefde betalingsherinnering in het Nederlands.
-Schrijf ALLEEN de body (geen onderwerpregel).
-Geen puntkomma's, geen streepjes als leesteken.
-Sluit af met:
-
-Groeten,
-John
-
-Antwoord als JSON-object met key "body".`;
-
 export async function suggestCsvLines(
   rows: CsvImportRow[],
   projects: ProjectHint[]
@@ -117,37 +107,6 @@ export async function suggestMailLine(
     throw new Error("Geen geldige boekingssuggestie ontvangen");
   }
   return row;
-}
-
-export async function generatePaymentReminder(input: {
-  clientName: string;
-  projectName: string;
-  lineName: string;
-  amount: number;
-  daysOpen: number;
-}): Promise<string> {
-  const content = await chatCompletion(
-    [
-      { role: "system", content: REMINDER_SYSTEM },
-      {
-        role: "user",
-        content: [
-          `Klant: ${input.clientName || input.projectName}`,
-          `Project: ${input.projectName}`,
-          `Omschrijving: ${input.lineName}`,
-          `Bedrag: €${input.amount.toFixed(2)}`,
-          `Dagen open: ${input.daysOpen}`,
-        ].join("\n"),
-      },
-    ],
-    { model: getLightModel(), temperature: 0.4, jsonMode: true }
-  );
-  const parsed = parseJsonObject(content);
-  const body = typeof parsed?.body === "string" ? parsed.body.trim() : "";
-  if (!body) {
-    throw new Error("Geen herinneringstekst ontvangen");
-  }
-  return body;
 }
 
 function parseSuggestionList(raw: string, expected: number): LineSuggestion[] {

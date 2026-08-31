@@ -120,6 +120,32 @@ export function categoryBreakdown(
     .sort((a, b) => b.amount - a.amount);
 }
 
+/** Which months of the period a line's paid-status applies to, and whether they're (fully/partially) paid. */
+function paidStatusInPeriod(
+  project: ProjectWithLines,
+  line: ProjectLine,
+  period: PeriodQuery,
+  today: string
+): { paid: boolean; partiallyPaid: boolean; periodMonths: string[] | null } {
+  if (line.billing === "one_off") {
+    return { paid: line.paidOn != null, partiallyPaid: false, periodMonths: null };
+  }
+  const months =
+    period.view === "year"
+      ? activeMonthsInYear(project, period.year, today, line.endsOn)
+      : [
+          period.view === "month"
+            ? monthKey(period.year, period.month)
+            : monthKey(yearMonth(today).year, yearMonth(today).month),
+        ];
+  const paidCount = months.filter((month) => line.paidMonths.includes(month)).length;
+  return {
+    paid: months.length > 0 && paidCount === months.length,
+    partiallyPaid: paidCount > 0 && paidCount < months.length,
+    periodMonths: months,
+  };
+}
+
 export function ledgerForPeriod(
   projects: ProjectWithLines[],
   period: PeriodQuery,
@@ -134,6 +160,7 @@ export function ledgerForPeriod(
         line.billing === "one_off" && line.hours != null
           ? roundEuros(line.amount * line.hours)
           : value;
+      const status = paidStatusInPeriod(project, line, period, today);
       rows.push({
         lineId: line.id,
         projectId: project.id,
@@ -145,6 +172,9 @@ export function ledgerForPeriod(
         amount,
         occurredOn: line.occurredOn,
         category: line.category,
+        paid: status.paid,
+        partiallyPaid: status.partiallyPaid,
+        periodMonths: status.periodMonths,
       });
     }
   }
