@@ -43,9 +43,12 @@ export async function GET(
     const pageNum = Math.max(1, Number(search.get("page")) || 1);
     const limit = Math.min(200, Math.max(1, Number(search.get("limit")) || TARGET_PAGE_SIZE));
     const offset = (pageNum - 1) * limit;
+    const sortField = search.get("sort") || undefined;
+    const sortDir = search.get("dir") === "desc" ? "desc" : "asc";
+    const listColumnKeys = new Set(campaign.profile.listColumns.map((c) => c.key));
 
     const [page, stats] = await Promise.all([
-      listTargets(campaignId, { status, q, limit, offset }),
+      listTargets(campaignId, { status, q, limit, offset, sortField, sortDir, listColumnKeys }),
       getTargetStats(campaignId),
     ]);
     return NextResponse.json({

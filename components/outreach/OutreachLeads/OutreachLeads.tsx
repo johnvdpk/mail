@@ -6,10 +6,13 @@ import {
   TARGET_STATUS_LABELS,
   type CampaignTarget,
   type EmailDraft,
+  type SortDir,
   type TargetStats,
   type TargetStatus,
 } from "@/lib/outreach/types";
 import styles from "../OutreachPanel/OutreachPanel.module.css";
+
+const PAGE_SIZE_OPTIONS = [50, 100, 200];
 
 type Props = {
   targets: CampaignTarget[];
@@ -20,6 +23,8 @@ type Props = {
   loading: boolean;
   query: string;
   statusFilter: TargetStatus | "";
+  sortField: string | null;
+  sortDir: SortDir;
   selected: Set<number>;
   drafts: Record<number, EmailDraft>;
   listColumns: ListColumn[];
@@ -28,6 +33,8 @@ type Props = {
   onQueryChange: (value: string) => void;
   onSearch: () => void;
   onStatusFilter: (value: TargetStatus | "") => void;
+  onSort: (field: string) => void;
+  onPageSizeChange: (size: number) => void;
   onPage: (page: number) => void;
   onToggle: (id: number) => void;
   onTogglePage: () => void;
@@ -48,6 +55,8 @@ export function OutreachLeads({
   loading,
   query,
   statusFilter,
+  sortField,
+  sortDir,
   selected,
   drafts,
   listColumns,
@@ -56,6 +65,8 @@ export function OutreachLeads({
   onQueryChange,
   onSearch,
   onStatusFilter,
+  onSort,
+  onPageSizeChange,
   onPage,
   onToggle,
   onTogglePage,
@@ -150,13 +161,20 @@ export function OutreachLeads({
                     aria-label="Selecteer pagina"
                   />
                 </th>
-                <th>Naam</th>
-                <th>E-mail</th>
-                <th>Website</th>
+                <SortHeader field="name" label="Naam" sortField={sortField} sortDir={sortDir} onSort={onSort} />
+                <SortHeader field="email" label="E-mail" sortField={sortField} sortDir={sortDir} onSort={onSort} />
+                <SortHeader field="website" label="Website" sortField={sortField} sortDir={sortDir} onSort={onSort} />
                 {listColumns.map((col) => (
-                  <th key={col.key}>{col.label}</th>
+                  <SortHeader
+                    key={col.key}
+                    field={col.key}
+                    label={col.label}
+                    sortField={sortField}
+                    sortDir={sortDir}
+                    onSort={onSort}
+                  />
                 ))}
-                <th>Status</th>
+                <SortHeader field="status" label="Status" sortField={sortField} sortDir={sortDir} onSort={onSort} />
                 <th>Acties</th>
               </tr>
             </thead>
@@ -204,19 +222,31 @@ export function OutreachLeads({
         )}
       </div>
 
-      {filteredTotal > pageSize && (
-        <div className={styles.pager}>
-          <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-            Vorige
-          </button>
-          <span>
-            Pagina {page} van {pageCount} ({filteredTotal} leads)
-          </span>
-          <button type="button" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
-            Volgende
-          </button>
-        </div>
-      )}
+      <div className={styles.pager}>
+        <label>
+          Per pagina{" "}
+          <select value={pageSize} onChange={(e) => onPageSizeChange(Number(e.target.value))}>
+            {PAGE_SIZE_OPTIONS.map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+        {filteredTotal > pageSize && (
+          <>
+            <button type="button" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+              Vorige
+            </button>
+            <span>
+              Pagina {page} van {pageCount} ({filteredTotal} leads)
+            </span>
+            <button type="button" disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+              Volgende
+            </button>
+          </>
+        )}
+      </div>
     </>
   );
 }
@@ -227,5 +257,29 @@ function Stat({ label, value }: { label: string; value: number }) {
       <span className={styles.statValue}>{value}</span>
       <span className={styles.statLabel}>{label}</span>
     </div>
+  );
+}
+
+function SortHeader({
+  field,
+  label,
+  sortField,
+  sortDir,
+  onSort,
+}: {
+  field: string;
+  label: string;
+  sortField: string | null;
+  sortDir: SortDir;
+  onSort: (field: string) => void;
+}) {
+  const active = sortField === field;
+  return (
+    <th>
+      <button type="button" className={styles.sortBtn} onClick={() => onSort(field)}>
+        {label}
+        {active && <span aria-hidden="true">{sortDir === "asc" ? " ▲" : " ▼"}</span>}
+      </button>
+    </th>
   );
 }

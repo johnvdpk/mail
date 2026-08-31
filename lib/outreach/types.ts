@@ -3,6 +3,7 @@ import type { WebsiteScanResult } from "./website-scan";
 
 export type TargetStatus = "new" | "emailed" | "excluded" | "not_interested";
 export type ResponseStatus = "pending" | "replied" | "no_interest" | "deal";
+export type SortDir = "asc" | "desc";
 
 export const RESPONSE_LABELS: Record<ResponseStatus, string> = {
   pending: "Pending",

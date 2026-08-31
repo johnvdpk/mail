@@ -17,6 +17,7 @@ import {
   type CampaignTarget,
   type EmailDraft,
   type ImportResult,
+  type SortDir,
   type TargetStats,
   type TargetStatus,
 } from "@/lib/outreach/types";
@@ -47,10 +48,13 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
   const [stats, setStats] = useState<TargetStats>(EMPTY_STATS);
   const [filteredTotal, setFilteredTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TARGET_PAGE_SIZE);
   const [tab, setTab] = useState<Tab>("leads");
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TargetStatus | "">("");
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Map<number, CampaignTarget>>(new Map());
   const [drafts, setDrafts] = useState<Record<number, EmailDraft>>({});
   const [previewTarget, setPreviewTarget] = useState<CampaignTarget | null>(null);
@@ -89,8 +93,12 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
       const params = new URLSearchParams();
       if (statusFilter) params.set("status", statusFilter);
       if (appliedQuery.trim()) params.set("q", appliedQuery.trim());
+      if (sortField) {
+        params.set("sort", sortField);
+        params.set("dir", sortDir);
+      }
       params.set("page", String(nextPage));
-      params.set("limit", String(TARGET_PAGE_SIZE));
+      params.set("limit", String(pageSize));
       const data = await loadTargetsRun(
         () =>
           apiRequest<{
@@ -105,8 +113,18 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
       setStats(data.stats);
       setFilteredTotal(data.total);
     },
-    [loadTargetsRun, appliedQuery, statusFilter, page]
+    [loadTargetsRun, appliedQuery, statusFilter, page, pageSize, sortField, sortDir]
   );
+
+  function handleSort(field: string) {
+    setPage(1);
+    if (sortField === field) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  }
 
   useEffect(() => {
     void loadCampaigns();
@@ -366,10 +384,12 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
           stats={stats}
           filteredTotal={filteredTotal}
           page={page}
-          pageSize={TARGET_PAGE_SIZE}
+          pageSize={pageSize}
           loading={loadTargetsAction.loading}
           query={query}
           statusFilter={statusFilter}
+          sortField={sortField}
+          sortDir={sortDir}
           selected={new Set(selected.keys())}
           drafts={drafts}
           listColumns={campaign.profile.listColumns}
@@ -383,6 +403,11 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
           onStatusFilter={(value) => {
             setPage(1);
             setStatusFilter(value);
+          }}
+          onSort={handleSort}
+          onPageSizeChange={(size) => {
+            setPage(1);
+            setPageSize(size);
           }}
           onPage={setPage}
           onToggle={toggleSelect}

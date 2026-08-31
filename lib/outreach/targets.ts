@@ -4,6 +4,7 @@ import { query, queryOne, transaction } from "../shared/db";
 import type {
   CampaignTarget,
   ImportResult,
+  SortDir,
   TargetImportRow,
   TargetStats,
   TargetStatus,
@@ -12,6 +13,7 @@ import type {
 export { normalizeEmail };
 
 const TARGET_STATUSES: TargetStatus[] = ["new", "emailed", "excluded", "not_interested"];
+const STATIC_SORT_FIELDS = new Set(["name", "email", "website", "status", "imported_at", "emailed_at"]);
 
 type TargetRow = {
   id: number;
@@ -54,7 +56,30 @@ export type TargetFilters = {
   q?: string;
   limit?: number;
   offset?: number;
+  sortField?: string;
+  sortDir?: SortDir;
+  /** Keys uit campaign.profile.listColumns, whitelist voor sorteren op attributes-JSONB. */
+  listColumnKeys?: Set<string>;
 };
+
+/**
+ * `sortField` komt uit de query string. Statische velden zijn een vaste whitelist; attribute-keys
+ * worden alleen toegelaten als ze voorkomen in listColumnKeys (afkomstig uit de campagne zelf, niet
+ * uit user input), zodat er nooit ongevalideerde tekst in de SQL-identifier terechtkomt.
+ */
+function buildOrderBy(filters: TargetFilters): string {
+  const dir = filters.sortDir === "desc" ? "DESC" : "ASC";
+  const field = filters.sortField;
+
+  if (field && STATIC_SORT_FIELDS.has(field)) {
+    return `ORDER BY ${field} ${dir} NULLS LAST, id ASC`;
+  }
+  if (field && filters.listColumnKeys?.has(field)) {
+    const key = field.replace(/'/g, "''");
+    return `ORDER BY (CASE WHEN attributes->>'${key}' ~ '^-?\\d+(\\.\\d+)?$' THEN (attributes->>'${key}')::numeric END) ${dir} NULLS LAST, attributes->>'${key}' ${dir} NULLS LAST, id ASC`;
+  }
+  return "ORDER BY name ASC, id ASC";
+}
 
 function targetWhere(
   campaignId: number,
@@ -103,7 +128,7 @@ export async function listTargets(
   const result = await query<TargetRow>(
     `SELECT * FROM campaign_targets
      WHERE ${where}
-     ORDER BY name ASC, id ASC${limitSql}`,
+     ${buildOrderBy(filters)}${limitSql}`,
     pageParams
   );
   return { targets: result.rows.map(toTarget), total };
