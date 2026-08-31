@@ -393,9 +393,9 @@ CREATE TABLE IF NOT EXISTS campaign_sends (
 CREATE INDEX IF NOT EXISTS idx_campaign_sends_target ON campaign_sends(target_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_sends_message_id ON campaign_sends(message_id);
 
--- One row per campaign. Polled by scripts/run-automail.sh (host cron) via
--- POST /api/outreach/automail/run, which personalizes and sends a trickle of
--- leads per day within a time window instead of one manual batch.
+-- One row per campaign. Polled by the interval in instrumentation.ts, which
+-- personalizes and sends a trickle of leads per day within a time window
+-- instead of one manual batch.
 CREATE TABLE IF NOT EXISTS campaign_automail_rules (
   campaign_id     INTEGER PRIMARY KEY REFERENCES campaigns(id) ON DELETE CASCADE,
   enabled         BOOLEAN NOT NULL DEFAULT FALSE,

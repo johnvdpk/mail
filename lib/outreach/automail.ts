@@ -6,9 +6,9 @@ import { sendOutreachMail } from "./send";
 import { countTargetsSentToday, isTargetStatus, selectAutomailCandidate } from "./targets";
 import type { AutomailFilters, AutomailLogEntry, AutomailRule, TargetStatus } from "./types";
 
-// Recommended cron interval (see scripts/run-automail.sh). Sends at most one
-// lead per campaign per tick, so a spread-across-the-day probability model
-// (see runAutomailTick) naturally paces sends instead of bursting them.
+// Matches the setInterval in instrumentation.ts. Sends at most one lead per
+// campaign per tick, so a spread-across-the-day probability model (see
+// runAutomailTick) naturally paces sends instead of bursting them.
 const TICK_MINUTES = 15;
 
 const DEFAULT_RULE: Omit<AutomailRule, "campaignId" | "updatedAt"> = {
