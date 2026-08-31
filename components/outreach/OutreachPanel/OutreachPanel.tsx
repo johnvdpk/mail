@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/shared/api-request";
 import { useAsyncAction } from "@/lib/shared/use-async-action";
+import { AutomailPanel } from "@/components/outreach/AutomailPanel/AutomailPanel";
 import { CampaignProfileEditor } from "@/components/outreach/CampaignProfileEditor/CampaignProfileEditor";
 import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal/EmailPreviewModal";
 import { ImportLeadsModal } from "@/components/outreach/ImportLeadsModal/ImportLeadsModal";
@@ -23,7 +24,7 @@ import {
 } from "@/lib/outreach/types";
 import styles from "./OutreachPanel.module.css";
 
-type Tab = "leads" | "profile" | "sent";
+type Tab = "leads" | "profile" | "sent" | "automail";
 
 type Props = {
   aiReady: boolean;
@@ -352,7 +353,7 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
       </div>
 
       <nav className={styles.tabs} aria-label="Outreach onderdelen">
-        {(["leads", "profile", "sent"] as Tab[]).map((id) => (
+        {(["leads", "profile", "sent", "automail"] as Tab[]).map((id) => (
           <button
             key={id}
             type="button"
@@ -360,7 +361,13 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
             onClick={() => setTab(id)}
             disabled={!campaign && id !== "leads"}
           >
-            {id === "leads" ? "Leads" : id === "profile" ? "Campagne-instellingen" : "Verzonden"}
+            {id === "leads"
+              ? "Leads"
+              : id === "profile"
+                ? "Campagne-instellingen"
+                : id === "sent"
+                  ? "Verzonden"
+                  : "Automail"}
           </button>
         ))}
       </nav>
@@ -378,6 +385,8 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
         />
       ) : tab === "sent" ? (
         <SentPanel campaignId={campaign.id} aiReady={aiReady} onOpenThread={onOpenThread} />
+      ) : tab === "automail" ? (
+        <AutomailPanel key={campaign.id} campaign={campaign} />
       ) : (
         <OutreachLeads
           targets={targets}

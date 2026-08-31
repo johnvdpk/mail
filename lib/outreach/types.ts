@@ -5,6 +5,35 @@ export type TargetStatus = "new" | "emailed" | "excluded" | "not_interested";
 export type ResponseStatus = "pending" | "replied" | "no_interest" | "deal";
 export type SortDir = "asc" | "desc";
 
+export type AttributeFilter =
+  | { type: "range"; min?: number; max?: number }
+  | { type: "in"; values: string[] };
+
+/** Keyed by listColumn key (e.g. "score", "bookingType"). */
+export type AutomailFilters = Record<string, AttributeFilter>;
+
+export type AutomailRule = {
+  campaignId: number;
+  enabled: boolean;
+  dailyCount: number;
+  /** "HH:MM", Europe/Amsterdam. */
+  windowStart: string;
+  windowEnd: string;
+  statusFilter: TargetStatus;
+  filters: AutomailFilters;
+  updatedAt: string;
+};
+
+export type AutomailLogEntry = {
+  id: number;
+  campaignId: number;
+  targetId: number | null;
+  targetName: string | null;
+  status: "sent" | "error";
+  message: string | null;
+  createdAt: string;
+};
+
 export const RESPONSE_LABELS: Record<ResponseStatus, string> = {
   pending: "Pending",
   replied: "Heeft gereageerd",

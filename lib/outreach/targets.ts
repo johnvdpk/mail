@@ -2,6 +2,7 @@ import { isValidEmail } from "../shared/email-validation";
 import { normalizeEmail } from "../shared/normalize";
 import { query, queryOne, transaction } from "../shared/db";
 import type {
+  AutomailFilters,
   CampaignTarget,
   ImportResult,
   SortDir,
@@ -132,6 +133,73 @@ export async function listTargets(
     pageParams
   );
   return { targets: result.rows.map(toTarget), total };
+}
+
+/**
+ * Same whitelist-then-interpolate reasoning as buildOrderBy: filter keys are
+ * checked against listColumnKeys (campaign data, not user input) before being
+ * interpolated into the JSONB path; only the filter values are bound as params.
+ */
+function buildAttributeFilterClauses(
+  filters: AutomailFilters,
+  listColumnKeys: Set<string>,
+  params: unknown[]
+): string[] {
+  const clauses: string[] = [];
+  for (const [field, filter] of Object.entries(filters)) {
+    if (!listColumnKeys.has(field)) continue;
+    const key = field.replace(/'/g, "''");
+    const numericPath = `attributes->>'${key}' ~ '^-?\\d+(\\.\\d+)?$' AND (attributes->>'${key}')::numeric`;
+
+    if (filter.type === "range") {
+      if (filter.min != null) {
+        params.push(filter.min);
+        clauses.push(`(${numericPath} >= $${params.length})`);
+      }
+      if (filter.max != null) {
+        params.push(filter.max);
+        clauses.push(`(${numericPath} <= $${params.length})`);
+      }
+    } else if (filter.type === "in" && filter.values.length > 0) {
+      params.push(filter.values);
+      clauses.push(`(attributes->>'${key}' = ANY($${params.length}::text[]))`);
+    }
+  }
+  return clauses;
+}
+
+/** Total non-test sends today (Europe/Amsterdam) for this campaign, used as the automail daily cap. */
+export async function countTargetsSentToday(campaignId: number, localDate: string): Promise<number> {
+  const row = await queryOne<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+     FROM campaign_sends cs
+     JOIN campaign_targets ct ON ct.id = cs.target_id
+     WHERE ct.campaign_id = $1 AND cs.is_test = FALSE
+       AND (cs.sent_at AT TIME ZONE 'Europe/Amsterdam')::date = $2::date`,
+    [campaignId, localDate]
+  );
+  return Number(row?.count ?? 0);
+}
+
+/** Oldest matching, not-yet-mailed lead for an automail tick. FIFO so no lead is skipped forever. */
+export async function selectAutomailCandidate(
+  campaignId: number,
+  statusFilter: TargetStatus,
+  filters: AutomailFilters,
+  listColumnKeys: Set<string>
+): Promise<CampaignTarget | null> {
+  const params: unknown[] = [campaignId, statusFilter];
+  const clauses = ["campaign_id = $1", "status = $2"];
+  clauses.push(...buildAttributeFilterClauses(filters, listColumnKeys, params));
+
+  const row = await queryOne<TargetRow>(
+    `SELECT * FROM campaign_targets
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY imported_at ASC, id ASC
+     LIMIT 1`,
+    params
+  );
+  return row ? toTarget(row) : null;
 }
 
 export async function getTarget(id: number): Promise<CampaignTarget | null> {

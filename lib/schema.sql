@@ -393,3 +393,30 @@ CREATE TABLE IF NOT EXISTS campaign_sends (
 CREATE INDEX IF NOT EXISTS idx_campaign_sends_target ON campaign_sends(target_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_sends_message_id ON campaign_sends(message_id);
 
+-- One row per campaign. Polled by scripts/run-automail.sh (host cron) via
+-- POST /api/outreach/automail/run, which personalizes and sends a trickle of
+-- leads per day within a time window instead of one manual batch.
+CREATE TABLE IF NOT EXISTS campaign_automail_rules (
+  campaign_id     INTEGER PRIMARY KEY REFERENCES campaigns(id) ON DELETE CASCADE,
+  enabled         BOOLEAN NOT NULL DEFAULT FALSE,
+  daily_count     INTEGER NOT NULL DEFAULT 4,
+  window_start    TEXT NOT NULL DEFAULT '09:00',
+  window_end      TEXT NOT NULL DEFAULT '17:00',
+  status_filter   TEXT NOT NULL DEFAULT 'new',
+  filters         JSONB NOT NULL DEFAULT '{}',
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Audit trail for automail sends/errors, shown in the Automail-tab so failures
+-- (AI down, dedup conflict, etc.) are visible without checking docker logs.
+CREATE TABLE IF NOT EXISTS campaign_automail_log (
+  id            SERIAL PRIMARY KEY,
+  campaign_id   INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  target_id     INTEGER REFERENCES campaign_targets(id) ON DELETE SET NULL,
+  status        TEXT NOT NULL,
+  message       TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_automail_log_campaign ON campaign_automail_log(campaign_id, created_at DESC);
+
