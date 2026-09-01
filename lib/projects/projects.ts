@@ -477,10 +477,10 @@ export function parseLineInput(body: Record<string, unknown>): LineInput | strin
   const paidOn = parseOptionalDate(body.paidOn);
   if (paidOn === undefined) return "paidOn ongeldig";
 
-  const startsOn = parseOptionalDate(body.startsOn);
+  const startsOn = body.startsOn ? parseOptionalDate(body.startsOn) : null;
   if (startsOn === undefined) return "startsOn ongeldig";
 
-  const endsOn = parseOptionalDate(body.endsOn);
+  const endsOn = body.endsOn ? parseOptionalDate(body.endsOn) : null;
   if (endsOn === undefined) return "endsOn ongeldig";
   if (startsOn && endsOn && endsOn < startsOn) return "einddatum ligt voor startdatum";
 
