@@ -295,7 +295,12 @@ CREATE INDEX IF NOT EXISTS idx_project_line_payments_line ON project_line_paymen
 
 ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS category TEXT;
 ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS ends_on DATE;
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS starts_on DATE;
 ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS source_message_id TEXT;
+-- Whether `amount` was entered/imported including VAT (bank mutations) or excluding it
+-- (manual invoicing). Never silently converts the stored amount; only affects how
+-- totals derive net/VAT from it. Existing rows default to false (unchanged behavior).
+ALTER TABLE project_lines ADD COLUMN IF NOT EXISTS amount_includes_vat BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- category used to be a fixed 6-value enum; it's now a user-managed list (see `categories`
 -- below), so the line itself just stores free text and isn't constrained anymore.

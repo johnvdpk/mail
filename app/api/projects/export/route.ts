@@ -22,6 +22,7 @@ export async function GET(request: Request) {
             return line.occurredOn?.startsWith(String(year));
           }
           if (line.endsOn && line.endsOn < `${year}-01-01`) return false;
+          if (line.startsOn && line.startsOn > `${year}-12-31`) return false;
           return true;
         })
         .map((line) => ({

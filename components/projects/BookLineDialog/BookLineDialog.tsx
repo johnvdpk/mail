@@ -71,6 +71,8 @@ export function BookLineDialog({ messageId, onClose, onSave }: Props) {
       paidOn: null,
       vatRate: draft.vatRate,
       category: draft.direction === "expense" ? draft.category ?? "overig" : draft.category,
+      amountIncludesVat: true,
+      startsOn: null,
       endsOn: null,
       sourceMessageId: draft.sourceMessageId,
       note: draft.note,

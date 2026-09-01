@@ -91,3 +91,13 @@
   background: color-mix(in srgb, var(--red) 15%, var(--surface2));
   color: var(--red);
 }
+
+.categoryTag {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}

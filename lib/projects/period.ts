@@ -52,6 +52,24 @@ export function formatEuro(value: number): string {
   return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(value);
 }
 
+/**
+ * Splits a period value into its net (excl. VAT) part and the VAT amount, based on
+ * whether the line's amount was entered/imported inclusive of VAT. The input `value`
+ * is never mutated/reinterpreted beyond this — callers store/display it as-is.
+ */
+export function splitAmountAndVat(
+  value: number,
+  vatRate: number | null,
+  amountIncludesVat: boolean
+): { net: number; vat: number } {
+  const rate = (vatRate ?? 0) / 100;
+  if (amountIncludesVat && rate > 0) {
+    const net = roundEuros(value / (1 + rate));
+    return { net, vat: roundEuros(value - net) };
+  }
+  return { net: value, vat: roundEuros(value * rate) };
+}
+
 export function isIsoDate(value: string): boolean {
   return ISO_DATE.test(value);
 }
@@ -108,6 +126,8 @@ export type LineForTotals = Pick<
   | "paidOn"
   | "paidMonths"
   | "vatRate"
+  | "amountIncludesVat"
+  | "startsOn"
   | "endsOn"
 >;
 
@@ -143,14 +163,15 @@ export function totalsForLines(
     const value = lineValueInPeriod(project, line, period, today);
     if (value === 0) continue;
     const open = openValueInPeriod(project, line, period, today, value);
-    const vat = roundEuros(value * ((line.vatRate ?? 0) / 100));
+    const { net, vat } = splitAmountAndVat(value, line.vatRate, line.amountIncludesVat);
+    const openNet = value === 0 ? 0 : roundEuros(open * (net / value));
     if (line.direction === "income") {
-      income += value;
-      openIncome += open;
+      income += net;
+      openIncome += openNet;
       vatIncome += vat;
     } else {
-      expense += value;
-      openExpense += open;
+      expense += net;
+      openExpense += openNet;
       vatExpense += vat;
     }
   }
@@ -166,6 +187,7 @@ export function lineValueInPeriod(
   if (period.view === "runrate") {
     if (!isActiveForRunrate(project, today)) return 0;
     if (line.billing !== "periodic") return 0;
+    if (line.startsOn && line.startsOn > today) return 0;
     if (line.endsOn && line.endsOn < today) return 0;
     return monthlyEquivalent(line);
   }
@@ -182,9 +204,9 @@ export function lineValueInPeriod(
 
   const monthly = monthlyEquivalent(line);
   if (period.view === "month") {
-    return overlapsMonth(project, period.year, period.month, today, line.endsOn) ? monthly : 0;
+    return overlapsMonth(project, period.year, period.month, today, line.startsOn, line.endsOn) ? monthly : 0;
   }
-  return roundEuros(monthly * activeMonthsInYear(project, period.year, today, line.endsOn).length);
+  return roundEuros(monthly * activeMonthsInYear(project, period.year, today, line.startsOn, line.endsOn).length);
 }
 
 /**
@@ -203,7 +225,7 @@ function openValueInPeriod(
     return line.paidOn ? 0 : totalValue;
   }
   if (period.view === "year") {
-    const months = activeMonthsInYear(project, period.year, today, line.endsOn);
+    const months = activeMonthsInYear(project, period.year, today, line.startsOn, line.endsOn);
     const unpaidMonths = months.filter((month) => !line.paidMonths.includes(month)).length;
     return roundEuros(monthlyEquivalent(line) * unpaidMonths);
   }
@@ -250,11 +272,13 @@ function overlapsMonth(
   year: number,
   month: number,
   today: string,
+  lineStartsOn?: string | null,
   lineEndsOn?: string | null
 ): boolean {
   const start = monthStart(year, month);
   const end = monthEnd(year, month);
   if (project.startOn && project.startOn > end) return false;
+  if (lineStartsOn && lineStartsOn > end) return false;
   if (lineEndsOn && lineEndsOn < start) return false;
   return effectiveEndOn(project, today) >= start;
 }
@@ -264,11 +288,12 @@ export function activeMonthsInYear(
   project: ProjectForTotals,
   year: number,
   today: string,
+  lineStartsOn?: string | null,
   lineEndsOn?: string | null
 ): string[] {
   const yearStart = `${year}-01-01`;
   const yearEnd = `${year}-12-31`;
-  const from = maxDate(project.startOn ?? yearStart, yearStart);
+  const from = maxDate(maxDate(project.startOn ?? yearStart, lineStartsOn ?? yearStart), yearStart);
   const to = minDate(minDate(effectiveEndOn(project, today), lineEndsOn ?? yearEnd), yearEnd);
   if (from > to) return [];
   const start = yearMonth(from);

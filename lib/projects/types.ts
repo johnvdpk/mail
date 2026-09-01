@@ -25,9 +25,9 @@ export type MoneyTotals = {
   openIncome: number;
   /** Sum of unpaid expense counted in this period — cashflow still due. */
   openExpense: number;
-  /** BTW over de inkomsten in deze periode (over het incl.-bedrag berekend). */
+  /** BTW over de inkomsten in deze periode, afgeleid per regel via amountIncludesVat. */
   vatIncome: number;
-  /** BTW over de uitgaven in deze periode. */
+  /** BTW over de uitgaven in deze periode, afgeleid per regel via amountIncludesVat. */
   vatExpense: number;
 };
 
@@ -50,6 +50,10 @@ export type ProjectLine = {
   vatRate: number | null;
   /** Free-text category name (see the `categories` table); optional for both directions. */
   category: string | null;
+  /** Whether `amount` was entered/imported inclusive of VAT (true) or exclusive (false, the default for manual entries). */
+  amountIncludesVat: boolean;
+  /** Periodic lines only start counting from this date (inclusive); null = same as project start. */
+  startsOn: string | null;
   /** Periodic lines stop counting after this date (inclusive). */
   endsOn: string | null;
   /** Local message id (folder#uid) when the line was booked from mail. */
@@ -103,6 +107,8 @@ export type LineInput = {
   paidOn: string | null;
   vatRate: number | null;
   category: string | null;
+  amountIncludesVat: boolean;
+  startsOn: string | null;
   endsOn: string | null;
   sourceMessageId: string | null;
   note: string | null;
@@ -126,6 +132,8 @@ export type LedgerRow = {
   partiallyPaid: boolean;
   /** Months this row's paid-status covers ("YYYY-MM"); null for one_off (uses paidOn instead). */
   periodMonths: string[] | null;
+  /** VAT amount for this row, derived from amount/vatRate/amountIncludesVat — `amount` itself is always net (excl. VAT). */
+  vatAmount: number;
 };
 
 /** Maps a counterparty/description substring to a fixed category or project (mutually exclusive). */

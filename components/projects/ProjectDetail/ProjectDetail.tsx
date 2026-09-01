@@ -40,6 +40,8 @@ function lineToInput(line: ProjectLine): LineInput {
     paidOn: line.paidOn,
     vatRate: line.vatRate,
     category: line.category,
+    amountIncludesVat: line.amountIncludesVat,
+    startsOn: line.startsOn,
     endsOn: line.endsOn,
     sourceMessageId: line.sourceMessageId,
     note: line.note,
@@ -53,6 +55,7 @@ function lineMeta(line: ProjectLine): string {
       : [BILLING_LABELS.one_off];
   if (line.billing === "one_off" && line.hours != null) parts.push(`${formatEuro(line.amount)} × ${line.hours} u`);
   if (line.occurredOn) parts.push(line.occurredOn);
+  if (line.startsOn) parts.push(`vanaf ${line.startsOn}`);
   if (line.endsOn) parts.push(`t/m ${line.endsOn}`);
   if (line.vatRate != null) parts.push(`${line.vatRate}% BTW`);
   if (line.category) parts.push(line.category);
@@ -326,7 +329,7 @@ function LineSection({
                 {item.billing === "periodic" &&
                   (period.view === "year" ? (
                     <div className={styles.monthChips}>
-                      {activeMonthsInYear(project, period.year, todayIso(), item.endsOn).map((month) => {
+                      {activeMonthsInYear(project, period.year, todayIso(), item.startsOn, item.endsOn).map((month) => {
                         const paid = item.paidMonths.includes(month);
                         const monthIndex = Number(month.slice(5, 7)) - 1;
                         return (
@@ -346,7 +349,7 @@ function LineSection({
                         className={styles.linkBtn}
                         onClick={() => {
                           const nowKey = todayIso().slice(0, 7);
-                          const unpaid = activeMonthsInYear(project, period.year, todayIso(), item.endsOn).filter(
+                          const unpaid = activeMonthsInYear(project, period.year, todayIso(), item.startsOn, item.endsOn).filter(
                             (month) => !item.paidMonths.includes(month) && month <= nowKey
                           );
                           if (unpaid.length > 0) onSetPaidMonth(item.id, unpaid, true);

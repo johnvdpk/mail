@@ -82,6 +82,8 @@ export function ImportCsvDialog({ projects, onClose, onImported }: Props) {
             paidOn: row.occurredOn,
             vatRate: row.vatRate,
             category: row.category,
+            amountIncludesVat: true,
+            startsOn: null,
             endsOn: null,
             sourceMessageId: null,
             projectId: row.projectId,

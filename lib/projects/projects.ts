@@ -52,6 +52,8 @@ type LineRow = {
   paid_on: Date | string | null;
   vat_rate: string | number | null;
   category: string | null;
+  amount_includes_vat: boolean;
+  starts_on: Date | string | null;
   ends_on: Date | string | null;
   source_message_id: string | null;
   note: string | null;
@@ -112,6 +114,8 @@ function toLine(row: LineRow, paidMonths: string[]): ProjectLine {
     paidMonths,
     vatRate: toNumber(row.vat_rate),
     category: row.category ?? null,
+    amountIncludesVat: row.amount_includes_vat ?? false,
+    startsOn: toDateOnly(row.starts_on),
     endsOn: toDateOnly(row.ends_on),
     sourceMessageId: row.source_message_id ?? null,
     note: row.note ?? null,
@@ -253,9 +257,9 @@ export async function createLine(projectId: number, input: LineInput): Promise<P
   const row = await queryOne<LineRow>(
     `INSERT INTO project_lines (
        project_id, direction, billing, name, amount, hours, cadence,
-       occurred_on, paid_on, vat_rate, category, ends_on, source_message_id, note
+       occurred_on, paid_on, vat_rate, category, amount_includes_vat, starts_on, ends_on, source_message_id, note
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
      RETURNING *`,
     [
       projectId,
@@ -269,6 +273,8 @@ export async function createLine(projectId: number, input: LineInput): Promise<P
       input.paidOn,
       input.vatRate,
       input.category,
+      input.amountIncludesVat,
+      input.startsOn,
       input.endsOn,
       input.sourceMessageId,
       input.note,
@@ -304,9 +310,11 @@ export async function updateLine(
          paid_on = $10,
          vat_rate = $11,
          category = $12,
-         ends_on = $13,
-         source_message_id = $14,
-         note = $15
+         amount_includes_vat = $13,
+         starts_on = $14,
+         ends_on = $15,
+         source_message_id = $16,
+         note = $17
      WHERE id = $1 AND project_id = $2
      RETURNING *`,
     [
@@ -322,6 +330,8 @@ export async function updateLine(
       input.paidOn,
       input.vatRate,
       input.category,
+      input.amountIncludesVat,
+      input.startsOn,
       input.endsOn,
       input.sourceMessageId,
       input.note,
@@ -467,13 +477,19 @@ export function parseLineInput(body: Record<string, unknown>): LineInput | strin
   const paidOn = parseOptionalDate(body.paidOn);
   if (paidOn === undefined) return "paidOn ongeldig";
 
+  const startsOn = parseOptionalDate(body.startsOn);
+  if (startsOn === undefined) return "startsOn ongeldig";
+
   const endsOn = parseOptionalDate(body.endsOn);
   if (endsOn === undefined) return "endsOn ongeldig";
+  if (startsOn && endsOn && endsOn < startsOn) return "einddatum ligt voor startdatum";
 
   const category = parseCategory(body.category);
   if (category === undefined) return "category ongeldig";
   // Expenses default to "overig" when left blank; income categorization stays fully optional.
   const resolvedCategory: string | null = direction === "expense" ? category ?? "overig" : category;
+
+  const amountIncludesVat = typeof body.amountIncludesVat === "boolean" ? body.amountIncludesVat : false;
 
   const sourceMessageId = parseSourceMessageId(body.sourceMessageId);
   const note = typeof body.note === "string" && body.note.trim() ? body.note.trim().slice(0, 500) : null;
@@ -494,6 +510,8 @@ export function parseLineInput(body: Record<string, unknown>): LineInput | strin
       paidOn: null,
       vatRate,
       category: resolvedCategory,
+      amountIncludesVat,
+      startsOn,
       endsOn,
       sourceMessageId,
       note,
@@ -520,6 +538,8 @@ export function parseLineInput(body: Record<string, unknown>): LineInput | strin
     paidOn,
     vatRate,
     category: resolvedCategory,
+    amountIncludesVat,
+    startsOn: null,
     endsOn: null,
     sourceMessageId,
     note,

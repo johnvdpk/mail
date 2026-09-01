@@ -15,6 +15,7 @@ export type LineSuggestion = {
   vatRate: number | null;
   /** Free-text category guess; matched against the user's saved categories, not a fixed list. */
   category: string | null;
+  amountIncludesVat: boolean;
   occurredOn: string | null;
 };
 
@@ -125,6 +126,7 @@ function parseSuggestionList(raw: string, expected: number): LineSuggestion[] {
         projectId: null,
         vatRate: null,
         category: "overig",
+        amountIncludesVat: true,
         occurredOn: null,
       }
     );
@@ -161,6 +163,7 @@ function normalizeSuggestion(raw: Record<string, unknown>): LineSuggestion | nul
     projectId,
     vatRate,
     category,
+    amountIncludesVat: true,
     occurredOn,
   };
 }

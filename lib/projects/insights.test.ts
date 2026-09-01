@@ -43,6 +43,8 @@ function line(partial: Partial<ProjectLine> & Pick<ProjectLine, "billing" | "dir
     paidMonths: [],
     vatRate: null,
     category: null,
+    amountIncludesVat: false,
+    startsOn: null,
     endsOn: null,
     sourceMessageId: null,
     note: null,

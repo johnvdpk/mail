@@ -104,6 +104,7 @@ export function LedgerPanel({
             <th>Datum</th>
             <th>Omschrijving</th>
             <th>Project</th>
+            <th>Categorie</th>
             <th>In</th>
             <th>Uit</th>
             <th>Betaald</th>
@@ -126,10 +127,16 @@ export function LedgerPanel({
               </td>
               <td>
                 {row.name}
-                {row.category && <span className={styles.meta}> · {row.category}</span>}
                 {row.note && <div className={styles.meta}>{row.note}</div>}
               </td>
               <td className={styles.meta}>{row.projectName}</td>
+              <td>
+                {row.category ? (
+                  <span className={styles.categoryTag}>{row.category}</span>
+                ) : (
+                  <span className={styles.meta}>—</span>
+                )}
+              </td>
               <td className={styles.income}>
                 {row.direction === "income" ? formatEuro(row.amount) : ""}
               </td>
@@ -156,7 +163,7 @@ export function LedgerPanel({
         </tbody>
         <tfoot>
           <tr>
-            <td colSpan={4}>Totaal ({rows.length} regels)</td>
+            <td colSpan={5}>Totaal ({rows.length} regels)</td>
             <td className={styles.income}>{formatEuro(incomeTotal)}</td>
             <td className={styles.expense}>{formatEuro(expenseTotal)}</td>
             <td />

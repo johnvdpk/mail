@@ -29,7 +29,9 @@ export function ProjectLineForm({ direction, submitting, initial, onSubmit, onCa
   const [category, setCategory] = useState<string | null>(
     initial?.category ?? (direction === "expense" ? "overig" : null)
   );
+  const [startsOn, setStartsOn] = useState(initial?.startsOn ?? "");
   const [endsOn, setEndsOn] = useState(initial?.endsOn ?? "");
+  const [amountIncludesVat, setAmountIncludesVat] = useState(initial?.amountIncludesVat ?? false);
 
   const amountLabel = useHours ? "Tarief per uur" : billing === "periodic" ? "Bedrag per keer" : "Bedrag";
 
@@ -45,6 +47,8 @@ export function ProjectLineForm({ direction, submitting, initial, onSubmit, onCa
     setPaidOn(todayIso());
     setVatRate("");
     setCategory(direction === "expense" ? "overig" : null);
+    setAmountIncludesVat(false);
+    setStartsOn("");
     setEndsOn("");
   }
 
@@ -65,6 +69,8 @@ export function ProjectLineForm({ direction, submitting, initial, onSubmit, onCa
           paidOn: billing === "one_off" && paid ? paidOn : null,
           vatRate: vatRate.trim() ? Number(vatRate.replace(",", ".")) : null,
           category,
+          amountIncludesVat,
+          startsOn: billing === "periodic" && startsOn ? startsOn : null,
           endsOn: billing === "periodic" && endsOn ? endsOn : null,
           sourceMessageId: initial?.sourceMessageId ?? null,
           note: initial?.note ?? null,
@@ -111,6 +117,14 @@ export function ProjectLineForm({ direction, submitting, initial, onSubmit, onCa
               </option>
             ))}
           </select>
+          <input
+            type="date"
+            value={startsOn}
+            aria-label="Start op (optioneel)"
+            title="Start op (optioneel)"
+            onChange={(event) => setStartsOn(event.target.value)}
+          />
+          <p className={styles.itemMeta}>Start op (optioneel, leeg = vanaf projectstart)</p>
           <input
             type="date"
             value={endsOn}
@@ -169,6 +183,16 @@ export function ProjectLineForm({ direction, submitting, initial, onSubmit, onCa
           onChange={setCategory}
           allowEmpty={direction === "income"}
         />
+        {vatRate && (
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={amountIncludesVat}
+              onChange={(event) => setAmountIncludesVat(event.target.checked)}
+            />
+            Bedrag is incl. BTW
+          </label>
+        )}
         {billing === "one_off" && (
           <label className={styles.checkboxRow}>
             <input

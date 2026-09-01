@@ -3,6 +3,7 @@ import {
   lineValueInPeriod,
   monthKey,
   roundEuros,
+  splitAmountAndVat,
   sumTotals,
   todayIso,
   totalsForLines,
@@ -102,7 +103,8 @@ export function categoryBreakdown(
       if (line.direction !== direction || line.category == null) continue;
       const value = lineValueInPeriod(project, line, period, today);
       if (value === 0) continue;
-      sums.set(line.category, (sums.get(line.category) ?? 0) + value);
+      const { net } = splitAmountAndVat(value, line.vatRate, line.amountIncludesVat);
+      sums.set(line.category, (sums.get(line.category) ?? 0) + net);
     }
   }
 
@@ -132,7 +134,7 @@ function paidStatusInPeriod(
   }
   const months =
     period.view === "year"
-      ? activeMonthsInYear(project, period.year, today, line.endsOn)
+      ? activeMonthsInYear(project, period.year, today, line.startsOn, line.endsOn)
       : [
           period.view === "month"
             ? monthKey(period.year, period.month)
@@ -156,10 +158,11 @@ export function ledgerForPeriod(
     for (const line of project.lines) {
       const value = lineValueInPeriod(project, line, period, today);
       if (value === 0) continue;
-      const amount =
+      const grossAmount =
         line.billing === "one_off" && line.hours != null
           ? roundEuros(line.amount * line.hours)
           : value;
+      const { net, vat } = splitAmountAndVat(grossAmount, line.vatRate, line.amountIncludesVat);
       const status = paidStatusInPeriod(project, line, period, today);
       rows.push({
         lineId: line.id,
@@ -169,12 +172,13 @@ export function ledgerForPeriod(
         note: line.note,
         direction: line.direction,
         billing: line.billing,
-        amount,
+        amount: net,
         occurredOn: line.occurredOn,
         category: line.category,
         paid: status.paid,
         partiallyPaid: status.partiallyPaid,
         periodMonths: status.periodMonths,
+        vatAmount: vat,
       });
     }
   }
@@ -239,7 +243,7 @@ function unpaidPeriodicMonths(project: ProjectWithLines, line: ProjectLine, toda
   const years = yearRange(yearMonth(from).year, yearMonth(today).year);
   const months: string[] = [];
   for (const year of years) {
-    for (const key of activeMonthsInYear(project, year, today, line.endsOn)) {
+    for (const key of activeMonthsInYear(project, year, today, line.startsOn, line.endsOn)) {
       if (key > currentKey) continue;
       if (key < from.slice(0, 7)) continue;
       if (!line.paidMonths.includes(key)) months.push(key);
