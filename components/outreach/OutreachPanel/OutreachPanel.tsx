@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiRequest } from "@/lib/shared/api-request";
 import { useAsyncAction } from "@/lib/shared/use-async-action";
+import { useCampaignCrud } from "@/components/outreach/hooks/useCampaignCrud";
+import { CampaignSwitcher } from "@/components/outreach/CampaignSwitcher/CampaignSwitcher";
 import { AutomailPanel } from "@/components/outreach/AutomailPanel/AutomailPanel";
 import { CampaignProfileEditor } from "@/components/outreach/CampaignProfileEditor/CampaignProfileEditor";
 import { EmailPreviewModal } from "@/components/outreach/EmailPreviewModal/EmailPreviewModal";
@@ -14,7 +16,6 @@ import type { PersonalizeResult } from "@/lib/outreach/personalize";
 import { stripSignatureFromText } from "@/lib/outreach/email-template";
 import {
   TARGET_PAGE_SIZE,
-  type Campaign,
   type CampaignTarget,
   type EmailDraft,
   type ImportResult,
@@ -43,8 +44,19 @@ const EMPTY_STATS: TargetStats = {
 };
 
 export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Props) {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [activeId, setActiveId] = useState<number | null>(null);
+  const {
+    campaigns,
+    activeId,
+    setActiveId,
+    campaign,
+    loadCampaigns,
+    createCampaign,
+    removeCampaign,
+    updateCampaign,
+    loadCampaignsAction,
+    createAction,
+    deleteAction,
+  } = useCampaignCrud();
   const [targets, setTargets] = useState<CampaignTarget[]>([]);
   const [stats, setStats] = useState<TargetStats>(EMPTY_STATS);
   const [filteredTotal, setFilteredTotal] = useState(0);
@@ -58,36 +70,17 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Map<number, CampaignTarget>>(new Map());
   const [drafts, setDrafts] = useState<Record<number, EmailDraft>>({});
+  const [personalizeErrors, setPersonalizeErrors] = useState<Record<number, string>>({});
   const [previewTarget, setPreviewTarget] = useState<CampaignTarget | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showBatch, setShowBatch] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [creating, setCreating] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadCampaignsAction = useAsyncAction();
   const loadTargetsAction = useAsyncAction();
-  const createAction = useAsyncAction();
-  const deleteAction = useAsyncAction();
   const statusAction = useAsyncAction();
-
-  const campaign = campaigns.find((c) => c.id === activeId) ?? null;
-  const loadCampaignsRun = loadCampaignsAction.run;
+  const selectAllAction = useAsyncAction();
   const loadTargetsRun = loadTargetsAction.run;
-
-  const loadCampaigns = useCallback(async () => {
-    const data = await loadCampaignsRun(
-      () => apiRequest<{ campaigns: Campaign[] }>("/api/outreach/campaigns"),
-      "Campagnes ophalen mislukt"
-    );
-    if (!data) return;
-    setCampaigns(data.campaigns);
-    setActiveId((prev) => {
-      if (prev && data.campaigns.some((c) => c.id === prev)) return prev;
-      return data.campaigns[0]?.id ?? null;
-    });
-  }, [loadCampaignsRun]);
 
   const loadTargets = useCallback(
     async (campaignId: number, nextPage = page) => {
@@ -134,49 +127,6 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
   useEffect(() => {
     if (activeId) void loadTargets(activeId, page);
   }, [activeId, loadTargets, page]);
-
-  async function createCampaign() {
-    const name = newName.trim();
-    if (!name) return;
-    const data = await createAction.run(
-      () =>
-        apiRequest<{ campaign: Campaign }>("/api/outreach/campaigns", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
-        }),
-      "Campagne aanmaken mislukt"
-    );
-    if (!data?.campaign) return;
-    setCampaigns((prev) => [...prev, data.campaign]);
-    setActiveId(data.campaign.id);
-    setNewName("");
-    setCreating(false);
-    setTab("profile");
-  }
-
-  async function removeCampaign() {
-    if (!campaign) return;
-    if (
-      !window.confirm(
-        `Campagne "${campaign.name}" verwijderen? Alle leads en verzonden mails van deze campagne gaan mee.`
-      )
-    ) {
-      return;
-    }
-    const data = await deleteAction.run(
-      () =>
-        apiRequest<{ ok: boolean }>(`/api/outreach/campaigns/${campaign.id}`, { method: "DELETE" }),
-      "Campagne verwijderen mislukt"
-    );
-    if (!data?.ok) return;
-    const remaining = campaigns.filter((c) => c.id !== campaign.id);
-    setCampaigns(remaining);
-    setActiveId(remaining[0]?.id ?? null);
-    setSelected(new Map());
-    setDrafts({});
-    setTab("leads");
-  }
 
   async function patchStatus(target: CampaignTarget, status: TargetStatus) {
     if (!campaign) return;
@@ -227,6 +177,27 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
     });
   }
 
+  async function selectAllMatching() {
+    if (!campaign) return;
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (appliedQuery.trim()) params.set("q", appliedQuery.trim());
+    const data = await selectAllAction.run(
+      () =>
+        apiRequest<{ targets: CampaignTarget[]; truncated: boolean }>(
+          `/api/outreach/campaigns/${campaign.id}/targets/select-all?${params}`
+        ),
+      "Alle leads selecteren mislukt"
+    );
+    if (!data) return;
+    setSelected(new Map(data.targets.map((t) => [t.id, t])));
+    if (data.truncated) {
+      setNotice(
+        `Alleen de eerste ${data.targets.length} leads zijn geselecteerd (limiet bereikt) — verfijn het filter voor de rest.`
+      );
+    }
+  }
+
   async function personalizeSelected() {
     if (!campaign || !aiReady) return;
     const queue = [...selected.values()].filter((t) => t.status === "new");
@@ -235,7 +206,9 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
       return;
     }
     setNotice(null);
+    setPersonalizeErrors({});
     setBatchProgress({ current: 0, total: queue.length });
+    const failures: Record<number, string> = {};
     for (let i = 0; i < queue.length; i++) {
       const target = queue[i];
       try {
@@ -256,11 +229,12 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
             usedMetadataFallback: data.usedMetadataFallback,
           },
         }));
-      } catch {
-        // keep going; per-item errors show in the review modal
+      } catch (err) {
+        failures[target.id] = err instanceof Error ? err.message : "Personalisatie mislukt";
       }
       setBatchProgress({ current: i + 1, total: queue.length });
     }
+    setPersonalizeErrors(failures);
     setBatchProgress(null);
     setShowBatch(true);
   }
@@ -294,63 +268,34 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
         </button>
       </header>
 
-      <div className={styles.toolbar}>
-        <label className={styles.switcher}>
-          Campagne
-          <select
-            value={activeId ?? ""}
-            onChange={(e) => {
-              setActiveId(Number(e.target.value) || null);
-              setPage(1);
+      <CampaignSwitcher
+        campaigns={campaigns}
+        activeId={activeId}
+        campaign={campaign}
+        createLoading={createAction.loading}
+        deleteLoading={deleteAction.loading}
+        onSelect={(id) => {
+          setActiveId(id);
+          setPage(1);
+          setSelected(new Map());
+          setDrafts({});
+        }}
+        onCreate={async (name) => {
+          const ok = await createCampaign(name);
+          if (ok) setTab("profile");
+          return ok;
+        }}
+        onDelete={() => {
+          void (async () => {
+            const ok = await removeCampaign();
+            if (ok) {
               setSelected(new Map());
               setDrafts({});
-            }}
-          >
-            {campaigns.length === 0 && <option value="">Nog geen campagne</option>}
-            {campaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {creating ? (
-          <form
-            className={styles.createForm}
-            onSubmit={(e) => {
-              e.preventDefault();
-              void createCampaign();
-            }}
-          >
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Naam van de campagne"
-              autoFocus
-            />
-            <button type="submit" disabled={createAction.loading}>
-              Aanmaken
-            </button>
-            <button type="button" onClick={() => setCreating(false)}>
-              Annuleren
-            </button>
-          </form>
-        ) : (
-          <button type="button" onClick={() => setCreating(true)}>
-            Nieuwe campagne
-          </button>
-        )}
-        {campaign && (
-          <button
-            type="button"
-            className={styles.delete}
-            onClick={() => void removeCampaign()}
-            disabled={deleteAction.loading}
-          >
-            Verwijderen
-          </button>
-        )}
-      </div>
+              setTab("leads");
+            }
+          })();
+        }}
+      />
 
       <nav className={styles.tabs} aria-label="Outreach onderdelen">
         {(["leads", "profile", "sent", "automail"] as Tab[]).map((id) => (
@@ -381,7 +326,7 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
         <CampaignProfileEditor
           key={`${campaign.id}-${campaign.updatedAt}`}
           campaign={campaign}
-          onSaved={(next) => setCampaigns((prev) => prev.map((c) => (c.id === next.id ? next : c)))}
+          onSaved={updateCampaign}
         />
       ) : tab === "sent" ? (
         <SentPanel campaignId={campaign.id} aiReady={aiReady} onOpenThread={onOpenThread} />
@@ -404,6 +349,7 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
           listColumns={campaign.profile.listColumns}
           aiReady={aiReady}
           batchProgress={batchProgress}
+          selectAllLoading={selectAllAction.loading}
           onQueryChange={setQuery}
           onSearch={() => {
             setPage(1);
@@ -421,6 +367,7 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
           onPage={setPage}
           onToggle={toggleSelect}
           onTogglePage={togglePage}
+          onSelectAllMatching={() => void selectAllMatching()}
           onImport={() => setShowImport(true)}
           onPersonalize={() => void personalizeSelected()}
           onReview={() => setShowBatch(true)}
@@ -463,6 +410,7 @@ export function OutreachPanel({ aiReady, smtpReady, onClose, onOpenThread }: Pro
           campaign={campaign}
           queue={selectedTargets}
           drafts={drafts}
+          personalizeErrors={personalizeErrors}
           smtpReady={smtpReady}
           onClose={() => setShowBatch(false)}
           onDraftChange={(id, draft) => setDrafts((prev) => ({ ...prev, [id]: draft }))}

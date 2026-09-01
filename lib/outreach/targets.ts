@@ -15,6 +15,7 @@ export { normalizeEmail };
 
 const TARGET_STATUSES: TargetStatus[] = ["new", "emailed", "excluded", "not_interested"];
 const STATIC_SORT_FIELDS = new Set(["name", "email", "website", "status", "imported_at", "emailed_at"]);
+const SELECT_ALL_CAP = 2000;
 
 type TargetRow = {
   id: number;
@@ -330,4 +331,27 @@ export async function updateTargetStatus(
   );
   if (!row) throw new Error("Lead niet gevonden");
   return toTarget(row);
+}
+
+/**
+ * All targets matching the status/q filter, not capped by the normal 200-row page
+ * limit — used for "select all matching" bulk actions. Capped at SELECT_ALL_CAP to
+ * avoid loading a pathologically large result set into the browser tab; `truncated`
+ * tells the caller the true count is higher so it can warn the user.
+ */
+export async function listAllMatchingTargets(
+  campaignId: number,
+  filters: Pick<TargetFilters, "status" | "q">
+): Promise<{ targets: CampaignTarget[]; truncated: boolean }> {
+  const { clauses, params } = targetWhere(campaignId, filters);
+  const queryParams = [...params, SELECT_ALL_CAP + 1];
+  const result = await query<TargetRow>(
+    `SELECT * FROM campaign_targets
+     WHERE ${clauses.join(" AND ")}
+     ORDER BY name ASC, id ASC
+     LIMIT $${queryParams.length}`,
+    queryParams
+  );
+  const truncated = result.rows.length > SELECT_ALL_CAP;
+  return { targets: result.rows.slice(0, SELECT_ALL_CAP).map(toTarget), truncated };
 }

@@ -160,3 +160,14 @@
   color: var(--red);
 }
 
+.hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.hint button {
+  font: inherit;
+  color: inherit;
+}
+

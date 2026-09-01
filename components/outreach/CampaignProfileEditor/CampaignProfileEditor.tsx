@@ -14,10 +14,11 @@ type Props = {
   onSaved: (campaign: Campaign) => void;
 };
 
-type SectionId = "context" | "replies" | "segments" | "footer" | "columns";
+type SectionId = "context" | "template" | "replies" | "segments" | "footer" | "columns";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "context", label: "AI-context" },
+  { id: "template", label: "Mail-template" },
   { id: "replies", label: "Reply teksten" },
   { id: "segments", label: "Per situatie" },
   { id: "footer", label: "Footer & test" },
@@ -128,6 +129,22 @@ export function CampaignProfileEditor({ campaign, onSaved }: Props) {
                   rows={1}
                 />
               </div>
+            </>
+          )}
+
+          {activeSection === "template" && (
+            <>
+              <Field
+                label="Mail-template"
+                hint="Voorbeeld-mail met variabelen. Beschikbare variabelen: {naam}, {email}, {website}, en aangepaste attributes zoals {demo_code} of {login_code}. De AI gebruikt dit als basis en personaliseert het per lead."
+                value={profile.emailTemplate}
+                onChange={(v) => markDirty("emailTemplate", v)}
+                rows={15}
+                spellcheckable
+              />
+              <p className={styles.snippetHint}>
+                Variabelen: {"{naam}"}, {"{email}"}, {"{website}"}, plus custom attributes uit je leads (bijv. {"{demo_code}"}, {"{bedrijfsnaam}"})
+              </p>
             </>
           )}
 

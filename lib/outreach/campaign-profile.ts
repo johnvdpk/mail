@@ -31,6 +31,8 @@ export type CampaignProfile = {
   context: string;
   maxWords: number;
   subjectLine: string;
+  /** Voorbeeld-mail met variabelen ({naam}, {email}, {website}, + custom attributes). AI gebruikt dit als basis. */
+  emailTemplate: string;
   replies: SnippetItem[];
   segments: SegmentHint[];
   footer: {
@@ -94,6 +96,16 @@ export const DEFAULT_CAMPAIGN_PROFILE: CampaignProfile = {
   context: DEFAULT_CONTEXT,
   maxWords: 200,
   subjectLine: "Even kort, {naam}",
+  emailTemplate: `Hey {naam},
+
+[Jouw waarneming]
+
+[Pitch]
+
+Zou je interesse hebben?
+
+Groeten,
+John`,
   replies: [
     {
       id: "afronden",
@@ -186,6 +198,7 @@ export function mergeWithDefaults(partial: Partial<CampaignProfile> | null | und
     context: partial.context ?? migrateLegacyContext(legacy) ?? defaults.context,
     maxWords: partial.maxWords ?? legacy.toneOfVoice?.maxWords ?? defaults.maxWords,
     subjectLine: partial.subjectLine ?? legacy.subjectLines?.defaultFormat ?? defaults.subjectLine,
+    emailTemplate: partial.emailTemplate ?? defaults.emailTemplate,
     replies: mergeSnippets(partial.replies, defaults.replies),
     segments: mergeSegments(partial.segments, defaults.segments),
     footer: { ...defaults.footer, ...partial.footer },

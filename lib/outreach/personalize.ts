@@ -8,6 +8,29 @@ import type { Campaign, CampaignSend, CampaignTarget } from "./types";
 import { fetchWebsiteText, normalizeWebsiteUrl } from "./website-content";
 import { emptyWebsiteScan, formatScanForPrompt, type WebsiteScanResult } from "./website-scan";
 
+function fillTemplateVariables(template: string, target: CampaignTarget): string {
+  let result = template;
+  const vars: Record<string, string> = {
+    naam: target.name,
+    email: target.email,
+    website: target.website || "",
+  };
+
+  if (target.attributes && typeof target.attributes === "object") {
+    for (const [key, value] of Object.entries(target.attributes)) {
+      if (typeof value === "string") vars[key] = value;
+    }
+  }
+
+  for (const [key, value] of Object.entries(vars)) {
+    result = result.replace(new RegExp(`\\{${key}\\}`, "g"), value);
+  }
+
+  result = result.replace(/\{[a-zA-Z_][a-zA-Z0-9_]*\}/g, "");
+
+  return result;
+}
+
 export type PersonalizeResult = {
   subject: string;
   text: string;
@@ -78,9 +101,15 @@ export async function personalizeOutreachEmail(
     ? `${formatScanForPrompt(scan)}\n\nWebsite-inhoud:\n${siteText}`
     : `Geen live website-inhoud beschikbaar. Gebruik onderstaande metadata.`;
 
+  const filledTemplate = profile.emailTemplate ? fillTemplateVariables(profile.emailTemplate, target) : "";
+
+  const templateBlock = filledTemplate
+    ? `\n=== MAIL-TEMPLATE (gebruik als basis, pas aan per lead) ===\n${filledTemplate}`
+    : "";
+
   const userPrompt = `${formatTargetMetadata(target)}
 
-${contextBlock}
+${contextBlock}${templateBlock}
 
 Schrijf een gepersonaliseerde mail.
 Verwijs naar max één concreet detail dat je ZEKER weet (haakje uit scan of website). Liever weglaten dan gissen.

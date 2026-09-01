@@ -1,5 +1,5 @@
 import { currentMailAccount } from "../config/mail-accounts";
-import { query } from "../shared/db";
+import { query, queryOne } from "../shared/db";
 import { normalizeEmail, normalizeMessageId } from "../shared/normalize";
 import type { ResponseStatus } from "./types";
 
@@ -11,29 +11,10 @@ type PendingSendRow = {
   email_normalized: string;
 };
 
-type MessageRow = {
-  id: string;
-  message_id: string | null;
-  in_reply_to: string | null;
-  references: string[] | null;
-  from_email: string | null;
-  date: Date;
-};
-
 export type MatchOutreachResult = {
   matched: number;
   errors: string[];
 };
-
-function idsOf(value: string | null | undefined): string[] {
-  if (!value) return [];
-  return [normalizeMessageId(value)].filter(Boolean);
-}
-
-function refsOf(refs: string[] | null | undefined): string[] {
-  if (!refs?.length) return [];
-  return refs.map((r) => normalizeMessageId(r)).filter(Boolean);
-}
 
 function ownEmail(): string {
   try {
@@ -43,12 +24,51 @@ function ownEmail(): string {
   }
 }
 
-function headerMatch(sendMessageId: string, message: MessageRow): boolean {
-  const sendId = normalizeMessageId(sendMessageId);
-  if (!sendId) return false;
-  if (idsOf(message.in_reply_to).includes(sendId)) return true;
-  if (idsOf(message.message_id).includes(sendId)) return true;
-  return refsOf(message.references).includes(sendId);
+async function findHeaderMatch(
+  sendMessageId: string,
+  mineEmail: string
+): Promise<{ id: string; date: Date } | null> {
+  const normalized = normalizeMessageId(sendMessageId);
+  if (!normalized) return null;
+
+  const result = await queryOne<{ id: string; date: Date }>(
+    `SELECT m.id, m.date
+     FROM messages m
+     WHERE (
+       lower(trim(both '<>' from coalesce(m.in_reply_to, ''))) = $1
+       OR lower(trim(both '<>' from coalesce(m.message_id, ''))) = $1
+       OR EXISTS (
+         SELECT 1
+         FROM unnest(coalesce(m.references, ARRAY[]::text[])) AS ref
+         WHERE lower(trim(both '<>' from ref)) = $1
+       )
+     )
+       AND (m.from_email IS NULL OR lower(m.from_email) != $2)
+     ORDER BY m.date DESC
+     LIMIT 1`,
+    [normalized, mineEmail]
+  );
+
+  return result ?? null;
+}
+
+async function findFromMatch(
+  targetEmail: string,
+  sentAt: Date,
+  mineEmail: string
+): Promise<{ id: string; date: Date } | null> {
+  const result = await queryOne<{ id: string; date: Date }>(
+    `SELECT m.id, m.date
+     FROM messages m
+     WHERE lower(coalesce(m.from_email, '')) = $1
+       AND (m.from_email IS NULL OR lower(m.from_email) != $2)
+       AND m.date > $3
+     ORDER BY m.date ASC
+     LIMIT 1`,
+    [normalizeEmail(targetEmail), normalizeEmail(mineEmail), sentAt]
+  );
+
+  return result ?? null;
 }
 
 export async function matchOutreachReplies(): Promise<MatchOutreachResult> {
@@ -65,39 +85,22 @@ export async function matchOutreachReplies(): Promise<MatchOutreachResult> {
 
   if (pending.rows.length === 0) return { matched: 0, errors };
 
-  const messages = await query<MessageRow>(
-    `SELECT id, message_id, in_reply_to, "references", from_email, date
-     FROM messages
-     ORDER BY date DESC
-     LIMIT 5000`
-  );
-
   const mine = ownEmail();
 
   for (const send of pending.rows) {
     try {
-      const byHeader = messages.rows.find(
-        (m) =>
-          headerMatch(send.message_id, m) &&
-          (!m.from_email || normalizeEmail(m.from_email) !== mine)
-      );
+      const byHeader = await findHeaderMatch(send.message_id, mine);
 
-      const byFrom =
-        byHeader ??
-        messages.rows.find((m) => {
-          if (!m.from_email) return false;
-          if (normalizeEmail(m.from_email) !== send.email_normalized) return false;
-          if (mine && normalizeEmail(m.from_email) === mine) return false;
-          return m.date.getTime() > send.sent_at.getTime();
-        });
+      const matchedMessage =
+        byHeader ?? (await findFromMatch(send.email_normalized, send.sent_at, mine));
 
-      if (!byFrom) continue;
+      if (!matchedMessage) continue;
 
       const updated = await query(
         `UPDATE campaign_sends
          SET response_status = 'replied', response_at = $2
          WHERE id = $1 AND response_status = 'pending'`,
-        [send.id, byFrom.date]
+        [send.id, matchedMessage.date]
       );
       if ((updated.rowCount ?? 0) > 0) matched += 1;
     } catch (err) {

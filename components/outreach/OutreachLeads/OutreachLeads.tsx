@@ -30,6 +30,7 @@ type Props = {
   listColumns: ListColumn[];
   aiReady: boolean;
   batchProgress: { current: number; total: number } | null;
+  selectAllLoading: boolean;
   onQueryChange: (value: string) => void;
   onSearch: () => void;
   onStatusFilter: (value: TargetStatus | "") => void;
@@ -38,6 +39,7 @@ type Props = {
   onPage: (page: number) => void;
   onToggle: (id: number) => void;
   onTogglePage: () => void;
+  onSelectAllMatching: () => void;
   onImport: () => void;
   onPersonalize: () => void;
   onReview: () => void;
@@ -62,6 +64,7 @@ export function OutreachLeads({
   listColumns,
   aiReady,
   batchProgress,
+  selectAllLoading,
   onQueryChange,
   onSearch,
   onStatusFilter,
@@ -70,6 +73,7 @@ export function OutreachLeads({
   onPage,
   onToggle,
   onTogglePage,
+  onSelectAllMatching,
   onImport,
   onPersonalize,
   onReview,
@@ -118,6 +122,16 @@ export function OutreachLeads({
           Importeer leads
         </button>
       </div>
+
+      {filteredTotal > targets.length && (
+        <p className={styles.hint}>
+          <button type="button" onClick={onSelectAllMatching} disabled={selectAllLoading}>
+            {selectAllLoading
+              ? "Bezig…"
+              : `Selecteer alle ${filteredTotal} leads die aan het filter voldoen`}
+          </button>
+        </p>
+      )}
 
       {batchProgress && (
         <p className={styles.notice} role="status" aria-live="polite">
@@ -209,10 +223,10 @@ export function OutreachLeads({
                       {drafts[target.id] ? "Preview" : "Personaliseer"}
                     </button>
                     <button type="button" onClick={() => onStatus(target, "excluded")}>
-                      {target.status === "excluded" ? "Terug" : "Skip"}
+                      {target.status === "excluded" ? "Terug" : "Uitsluiten"}
                     </button>
                     <button type="button" onClick={() => onStatus(target, "not_interested")}>
-                      {target.status === "not_interested" ? "Terug" : "Nee"}
+                      {target.status === "not_interested" ? "Terug" : "Geen interesse"}
                     </button>
                   </td>
                 </tr>

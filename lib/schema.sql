@@ -393,6 +393,19 @@ CREATE TABLE IF NOT EXISTS campaign_sends (
 CREATE INDEX IF NOT EXISTS idx_campaign_sends_target ON campaign_sends(target_id);
 CREATE INDEX IF NOT EXISTS idx_campaign_sends_message_id ON campaign_sends(message_id);
 
+-- Claim-ledger voor race-proof dedup: sendOutreachMail() (lib/outreach/send.ts) claimt
+-- hier het genormaliseerde e-mailadres VOORDAT de mail daadwerkelijk wordt verstuurd.
+-- De UNIQUE-constraint zorgt dat een gelijktijdige tweede poging voor hetzelfde adres
+-- hard faalt in plaats van te wachten op een check-then-insert race (zie
+-- assertNotDuplicate() in lib/outreach/dedup.ts, die als snelle voorcheck blijft
+-- bestaan maar zelf geen harde garantie geeft). Bij een mislukte send wordt de claim
+-- weer verwijderd (zie releaseEmailClaim in lib/outreach/dedup.ts).
+CREATE TABLE IF NOT EXISTS outreach_sent_emails (
+  email_normalized     TEXT PRIMARY KEY,
+  campaign_target_id   INTEGER REFERENCES campaign_targets(id) ON DELETE SET NULL,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- One row per campaign. Polled by the interval in instrumentation.ts, which
 -- personalizes and sends a trickle of leads per day within a time window
 -- instead of one manual batch.

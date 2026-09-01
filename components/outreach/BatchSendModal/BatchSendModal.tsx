@@ -12,6 +12,7 @@ type Props = {
   campaign: Campaign;
   queue: CampaignTarget[];
   drafts: Record<number, EmailDraft>;
+  personalizeErrors?: Record<number, string>;
   smtpReady: boolean;
   onClose: () => void;
   onDraftChange: (targetId: number, draft: EmailDraft) => void;
@@ -22,13 +23,22 @@ export function BatchSendModal({
   campaign,
   queue,
   drafts,
+  personalizeErrors,
   smtpReady,
   onClose,
   onDraftChange,
   onSent,
 }: Props) {
   const [index, setIndex] = useState(0);
-  const [statuses, setStatuses] = useState<Record<number, { status: ItemStatus; detail?: string }>>({});
+  const [statuses, setStatuses] = useState<Record<number, { status: ItemStatus; detail?: string }>>(
+    () => {
+      const initial: Record<number, { status: ItemStatus; detail?: string }> = {};
+      for (const [id, message] of Object.entries(personalizeErrors ?? {})) {
+        initial[Number(id)] = { status: "error", detail: `Personalisatie mislukt: ${message}` };
+      }
+      return initial;
+    }
+  );
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [sendingAll, setSendingAll] = useState(false);
 
@@ -90,9 +100,19 @@ export function BatchSendModal({
 
   async function sendAll() {
     if (!smtpReady) return;
+    const remaining = queue.filter(
+      (t) => statuses[t.id]?.status !== "sent" && statuses[t.id]?.status !== "error"
+    );
+    if (remaining.length === 0) return;
+    if (
+      !window.confirm(
+        `Weet je zeker dat je ${remaining.length} mail${remaining.length === 1 ? "" : "s"} wilt versturen? Dit kan niet ongedaan worden gemaakt.`
+      )
+    ) {
+      return;
+    }
     persistCurrent();
     setSendingAll(true);
-    const remaining = queue.filter((t) => statuses[t.id]?.status !== "sent");
     setProgress({ current: 0, total: remaining.length });
 
     for (let i = 0; i < remaining.length; i++) {
